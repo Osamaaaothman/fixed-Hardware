@@ -1,0 +1,602 @@
+import express from "express";
+import { SerialPort } from "serialport";
+import { ReadlineParser } from "@serialport/parser-readline";
+
+const router = express.Router();
+
+// Box Serial Configuration
+const BOX_CONFIG = {
+  DEFAULT_PORT: "/dev/ttyUSB1", // Linux port for Box (different from CNC)
+  BAUD_RATE: 9600, // Box uses 9600 baud
+  MAX_RECONNECT_ATTEMPTS: 10,
+};
+
+// Box State
+let boxPort = null;
+let boxParser = null;
+let isBoxConnected = false;
+let boxStatus = {
+  connected: false,
+  port: null,
+  loggedIn: false,
+  currentMode: "IDLE",
+  lastMessage: null,
+  lastActivity: null,
+  reconnectAttempts: 0,
+  error: null,
+};
+
+// Activity log (keep last 100 messages)
+let activityLog = [];
+const MAX_LOG_SIZE = 100;
+
+/**
+ * Add message to activity log
+ */
+const addToActivityLog = (message, type = "info") => {
+  const logEntry = {
+    timestamp: new Date().toISOString(),
+    message,
+    type, // info, success, error, command
+  };
+
+  activityLog.unshift(logEntry);
+  if (activityLog.length > MAX_LOG_SIZE) {
+    activityLog = activityLog.slice(0, MAX_LOG_SIZE);
+  }
+
+  return logEntry;
+};
+
+/**
+ * Update box status and emit Socket.IO event
+ */
+const updateBoxStatus = (updates, io) => {
+  boxStatus = {
+    ...boxStatus,
+    ...updates,
+    lastActivity: new Date().toISOString(),
+  };
+
+  if (io) {
+    io.emit("box:status", boxStatus);
+  }
+
+  return boxStatus;
+};
+
+/**
+ * Parse Box status messages and update state
+ */
+const parseBoxMessage = (message, io) => {
+  const msg = message.trim();
+
+  console.log(`[BOX] Received: ${msg}`);
+
+  const logEntry = addToActivityLog(msg, "info");
+
+  // Emit activity event
+  if (io) {
+    io.emit("box:activity", logEntry);
+  }
+
+  // Update box status based on message
+  switch (msg) {
+    case "LOGIN_OK":
+      updateBoxStatus(
+        {
+          loggedIn: true,
+          currentMode: "MENU",
+          lastMessage: msg,
+          error: null,
+        },
+        io
+      );
+      break;
+
+    case "LOGIN_FAIL":
+      updateBoxStatus(
+        {
+          loggedIn: false,
+          currentMode: "LOGIN_FAILED",
+          lastMessage: msg,
+          error: "Login failed - incorrect password",
+        },
+        io
+      );
+      break;
+
+    case "MODE_WRITING":
+      updateBoxStatus(
+        {
+          currentMode: "WRITING",
+          lastMessage: msg,
+        },
+        io
+      );
+      break;
+
+    case "MODE_ERASING":
+      updateBoxStatus(
+        {
+          currentMode: "ERASING",
+          lastMessage: msg,
+        },
+        io
+      );
+      break;
+
+    case "MODE_READY":
+      updateBoxStatus(
+        {
+          currentMode: "READY",
+          lastMessage: msg,
+        },
+        io
+      );
+      break;
+
+    case "LOGOUT":
+      updateBoxStatus(
+        {
+          loggedIn: false,
+          currentMode: "LOGGED_OUT",
+          lastMessage: msg,
+        },
+        io
+      );
+      break;
+
+    case "SLEEP":
+      updateBoxStatus(
+        {
+          currentMode: "SLEEP",
+          lastMessage: msg,
+        },
+        io
+      );
+      break;
+
+    case "IDLE":
+      updateBoxStatus(
+        {
+          currentMode: "IDLE",
+          lastMessage: msg,
+        },
+        io
+      );
+      break;
+
+    default:
+      // Unknown message
+      updateBoxStatus({ lastMessage: msg }, io);
+  }
+};
+
+/**
+ * Connect to Box serial port
+ */
+const connectToBox = async (portPath, io, attemptNumber = 1) => {
+  return new Promise((resolve, reject) => {
+    console.log(
+      `[BOX] Connection attempt ${attemptNumber}/${BOX_CONFIG.MAX_RECONNECT_ATTEMPTS} to ${portPath}`
+    );
+
+    try {
+      // Close existing connection if any
+      if (boxPort && boxPort.isOpen) {
+        boxPort.close();
+      }
+
+      // Create new serial port connection
+      boxPort = new SerialPort({
+        path: portPath,
+        baudRate: BOX_CONFIG.BAUD_RATE,
+        dataBits: 8,
+        parity: "none",
+        stopBits: 1,
+        flowControl: false,
+        autoOpen: false,
+      });
+
+      boxParser = boxPort.pipe(new ReadlineParser({ delimiter: "\n" }));
+
+      // Setup event listeners
+      boxPort.on("open", () => {
+        console.log(`[BOX] Serial port ${portPath} opened successfully`);
+        isBoxConnected = true;
+
+        updateBoxStatus(
+          {
+            connected: true,
+            port: portPath,
+            reconnectAttempts: 0,
+            error: null,
+          },
+          io
+        );
+
+        addToActivityLog(`Connected to Box on ${portPath}`, "success");
+
+        if (io) {
+          io.emit("box:connected", { port: portPath });
+        }
+
+        resolve({ success: true, port: portPath });
+      });
+
+      boxPort.on("error", async (err) => {
+        console.error(`[BOX] Serial port error:`, err.message);
+
+        const errorMsg = `Connection error: ${err.message}`;
+        addToActivityLog(errorMsg, "error");
+
+        updateBoxStatus(
+          {
+            connected: false,
+            error: errorMsg,
+            reconnectAttempts: attemptNumber,
+          },
+          io
+        );
+
+        // Auto-reconnect if attempts remain
+        if (attemptNumber < BOX_CONFIG.MAX_RECONNECT_ATTEMPTS) {
+          console.log(`[BOX] Retrying in 2 seconds...`);
+          setTimeout(async () => {
+            try {
+              await connectToBox(portPath, io, attemptNumber + 1);
+            } catch (retryErr) {
+              // Will be handled by final rejection
+            }
+          }, 2000);
+        } else {
+          const finalError = `Failed to connect after ${BOX_CONFIG.MAX_RECONNECT_ATTEMPTS} attempts. Error: ${err.message}`;
+          updateBoxStatus(
+            {
+              connected: false,
+              error: finalError,
+              reconnectAttempts: attemptNumber,
+            },
+            io
+          );
+
+          if (io) {
+            io.emit("box:error", { message: finalError, canRetry: true });
+          }
+
+          reject(new Error(finalError));
+        }
+      });
+
+      boxPort.on("close", () => {
+        console.log("[BOX] Serial port closed");
+        isBoxConnected = false;
+
+        updateBoxStatus(
+          {
+            connected: false,
+            loggedIn: false,
+            currentMode: "DISCONNECTED",
+          },
+          io
+        );
+
+        addToActivityLog("Box disconnected", "info");
+
+        if (io) {
+          io.emit("box:disconnected");
+        }
+      });
+
+      // Setup parser to receive Box messages
+      boxParser.on("data", (data) => {
+        parseBoxMessage(data, io);
+      });
+
+      // Open the port
+      boxPort.open((err) => {
+        if (err) {
+          console.error(`[BOX] Failed to open port:`, err.message);
+
+          const errorMsg = `Failed to open port: ${err.message}`;
+          updateBoxStatus(
+            {
+              connected: false,
+              error: errorMsg,
+              reconnectAttempts: attemptNumber,
+            },
+            io
+          );
+
+          // Auto-reconnect if attempts remain
+          if (attemptNumber < BOX_CONFIG.MAX_RECONNECT_ATTEMPTS) {
+            console.log(`[BOX] Retrying in 2 seconds...`);
+            setTimeout(async () => {
+              try {
+                await connectToBox(portPath, io, attemptNumber + 1);
+              } catch (retryErr) {
+                // Will be handled by final rejection
+              }
+            }, 2000);
+          } else {
+            const finalError = `Failed to connect after ${BOX_CONFIG.MAX_RECONNECT_ATTEMPTS} attempts. Error: ${err.message}`;
+            updateBoxStatus(
+              {
+                connected: false,
+                error: finalError,
+                reconnectAttempts: attemptNumber,
+              },
+              io
+            );
+
+            if (io) {
+              io.emit("box:error", { message: finalError, canRetry: true });
+            }
+
+            reject(new Error(finalError));
+          }
+        }
+      });
+    } catch (err) {
+      console.error(`[BOX] Exception during connection:`, err);
+
+      const errorMsg = `Connection exception: ${err.message}`;
+      updateBoxStatus(
+        {
+          connected: false,
+          error: errorMsg,
+          reconnectAttempts: attemptNumber,
+        },
+        io
+      );
+
+      reject(err);
+    }
+  });
+};
+
+/**
+ * POST /api/box/connect
+ * Connect to Box serial port
+ */
+router.post("/connect", async (req, res) => {
+  const { port = BOX_CONFIG.DEFAULT_PORT } = req.body;
+  const io = req.app.get("io");
+
+  if (isBoxConnected) {
+    return res.status(400).json({
+      error: "Box is already connected",
+      status: boxStatus,
+    });
+  }
+
+  try {
+    await connectToBox(port, io);
+    res.json({
+      success: true,
+      message: "Connected to Box successfully",
+      status: boxStatus,
+    });
+  } catch (err) {
+    res.status(500).json({
+      error: err.message,
+      status: boxStatus,
+      canRetry: true,
+    });
+  }
+});
+
+/**
+ * POST /api/box/disconnect
+ * Disconnect from Box serial port
+ */
+router.post("/disconnect", async (req, res) => {
+  const io = req.app.get("io");
+
+  if (!isBoxConnected) {
+    return res.status(400).json({
+      error: "Box is not connected",
+      status: boxStatus,
+    });
+  }
+
+  try {
+    if (boxPort && boxPort.isOpen) {
+      await new Promise((resolve, reject) => {
+        boxPort.close((err) => {
+          if (err) {
+            console.error("[BOX] Error closing port:", err);
+            reject(err);
+          } else {
+            console.log("[BOX] Port closed successfully");
+            isBoxConnected = false;
+
+            updateBoxStatus(
+              {
+                connected: false,
+                loggedIn: false,
+                currentMode: "DISCONNECTED",
+                error: null,
+              },
+              io
+            );
+
+            addToActivityLog("Box disconnected manually", "info");
+
+            if (io) {
+              io.emit("box:disconnected");
+            }
+
+            resolve();
+          }
+        });
+      });
+    }
+
+    res.json({
+      success: true,
+      message: "Disconnected from Box successfully",
+      status: boxStatus,
+    });
+  } catch (err) {
+    res.status(500).json({
+      error: `Failed to disconnect: ${err.message}`,
+      status: boxStatus,
+    });
+  }
+});
+
+/**
+ * GET /api/box/status
+ * Get current Box status
+ */
+router.get("/status", (req, res) => {
+  res.json({
+    success: true,
+    status: boxStatus,
+    activityLog: activityLog.slice(0, 20), // Return last 20 activities
+  });
+});
+
+/**
+ * POST /api/box/command
+ * Send command to Box
+ */
+router.post("/command", (req, res) => {
+  const { command } = req.body;
+  const io = req.app.get("io");
+
+  if (!command) {
+    return res.status(400).json({ error: "No command provided" });
+  }
+
+  // Validate command
+  const validCommands = ["writing", "erasing", "exiting", "ready", "locked"];
+  if (!validCommands.includes(command)) {
+    return res.status(400).json({
+      error: `Invalid command. Valid commands: ${validCommands.join(", ")}`,
+      validCommands,
+    });
+  }
+
+  if (!isBoxConnected || !boxPort || !boxPort.isOpen) {
+    return res.status(400).json({
+      error: "Box is not connected",
+      status: boxStatus,
+    });
+  }
+
+  try {
+    // Send command to Box
+    boxPort.write(`${command}\n`, (err) => {
+      if (err) {
+        console.error(`[BOX] Error sending command "${command}":`, err);
+
+        const errorMsg = `Failed to send command: ${err.message}`;
+        addToActivityLog(errorMsg, "error");
+
+        return res.status(500).json({
+          error: errorMsg,
+          status: boxStatus,
+        });
+      }
+
+      console.log(`[BOX] Command sent: ${command}`);
+
+      const logEntry = addToActivityLog(`Command sent: ${command}`, "command");
+
+      if (io) {
+        io.emit("box:activity", logEntry);
+      }
+
+      res.json({
+        success: true,
+        message: `Command "${command}" sent successfully`,
+        status: boxStatus,
+      });
+    });
+  } catch (err) {
+    const errorMsg = `Exception sending command: ${err.message}`;
+    addToActivityLog(errorMsg, "error");
+
+    res.status(500).json({
+      error: errorMsg,
+      status: boxStatus,
+    });
+  }
+});
+
+/**
+ * GET /api/box/stream
+ * Server-Sent Events stream for Box status updates
+ */
+router.get("/stream", (req, res) => {
+  // Set headers for Server-Sent Events
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+
+  const sendEvent = (event, data) => {
+    res.write(`event: ${event}\n`);
+    res.write(`data: ${JSON.stringify(data)}\n\n`);
+  };
+
+  // Send current status immediately
+  sendEvent("status", boxStatus);
+
+  // Setup interval to send periodic updates
+  const intervalId = setInterval(() => {
+    sendEvent("status", boxStatus);
+  }, 1000);
+
+  // Cleanup on client disconnect
+  req.on("close", () => {
+    clearInterval(intervalId);
+    console.log("[BOX] SSE client disconnected");
+  });
+});
+
+/**
+ * GET /api/box/activity
+ * Get activity log
+ */
+router.get("/activity", (req, res) => {
+  const { limit = 50 } = req.query;
+
+  res.json({
+    success: true,
+    activities: activityLog.slice(0, parseInt(limit)),
+    total: activityLog.length,
+  });
+});
+
+/**
+ * GET /api/box/ports
+ * List available serial ports
+ */
+router.get("/ports", async (req, res) => {
+  try {
+    const ports = await SerialPort.list();
+
+    res.json({
+      success: true,
+      ports: ports.map((port) => ({
+        path: port.path,
+        manufacturer: port.manufacturer,
+        serialNumber: port.serialNumber,
+        pnpId: port.pnpId,
+        locationId: port.locationId,
+        productId: port.productId,
+        vendorId: port.vendorId,
+      })),
+      defaultPort: BOX_CONFIG.DEFAULT_PORT,
+    });
+  } catch (err) {
+    res.status(500).json({
+      error: `Failed to list ports: ${err.message}`,
+    });
+  }
+});
+
+export default router;

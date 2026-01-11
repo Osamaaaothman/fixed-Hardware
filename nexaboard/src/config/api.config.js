@@ -1,6 +1,6 @@
 /**
  * Centralized API and Serial Configuration
- * 
+ *
  * Change these values here to update them across the entire application
  */
 
@@ -8,7 +8,7 @@
 export const API_CONFIG = {
   // Base URL for the backend API
   BASE_URL: "http://192.168.1.34:3000",
-  
+
   // API endpoints (derived from base URL)
   get ENDPOINTS() {
     return {
@@ -21,15 +21,16 @@ export const API_CONFIG = {
       SYSTEM_LOCK: `${this.BASE_URL}/api/system/lock`,
       SYSTEM_UNLOCK: `${this.BASE_URL}/api/system/unlock`,
       SYSTEM_STATUS: `${this.BASE_URL}/api/system/status`,
+      BOX: `${this.BASE_URL}/api/box`,
     };
-  }
+  },
 };
 
 // Serial Port Configuration
 export const SERIAL_CONFIG = {
   // Default serial port (Linux: /dev/ttyUSB0, Windows: COM4)
   DEFAULT_PORT: "/dev/ttyUSB0",
-  
+
   // Default baud rate
   // NOTE: If experiencing data corruption, try lowering to 57600 or 38400
   // Higher speeds (115200) are more susceptible to USB interference
