@@ -41,7 +41,7 @@ const StatusPage = () => {
   });
   const [boxActivityLog, setBoxActivityLog] = useState([]);
   const [availablePorts, setAvailablePorts] = useState([]);
-  const [selectedPort, setSelectedPort] = useState("/dev/ttyUSB1");
+  const [selectedPort, setSelectedPort] = useState("/dev/ttyACM0");
   const [isConnecting, setIsConnecting] = useState(false);
   const [showPortSelector, setShowPortSelector] = useState(false);
 
@@ -52,7 +52,7 @@ const StatusPage = () => {
   // CNC state (from serial controller)
   const [cncStatus, setCncStatus] = useState({
     connected: false,
-    port: "/dev/ttyUSB0",
+    port: "/dev/ttyACM0",
     isDrawing: false,
     position: { x: 0, y: 0, z: -2.3 },
   });
@@ -461,7 +461,7 @@ const StatusPage = () => {
                       value={selectedPort}
                       onChange={(e) => setSelectedPort(e.target.value)}
                       className="input input-bordered flex-1 font-mono text-sm"
-                      placeholder="/dev/ttyUSB1"
+                      placeholder="/dev/ttyACM0"
                     />
                     <button
                       onClick={() => setShowPortSelector(!showPortSelector)}

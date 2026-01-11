@@ -4,10 +4,10 @@ const BOX_API_URL = API_CONFIG.ENDPOINTS.BOX;
 
 /**
  * Connect to Box serial port
- * @param {string} port - Serial port path (default: /dev/ttyUSB1)
+ * @param {string} port - Serial port path (default: /dev/ttyACM0)
  * @returns {Promise<Object>} Connection result
  */
-export const connectBox = async (port = "/dev/ttyUSB1") => {
+export const connectBox = async (port = "/dev/ttyACM0") => {
   try {
     const response = await fetch(`${BOX_API_URL}/connect`, {
       method: "POST",

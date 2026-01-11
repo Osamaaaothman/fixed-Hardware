@@ -28,8 +28,8 @@ export const API_CONFIG = {
 
 // Serial Port Configuration
 export const SERIAL_CONFIG = {
-  // Default serial port (Linux: /dev/ttyUSB0, Windows: COM4)
-  DEFAULT_PORT: "/dev/ttyUSB0",
+  // Default serial port (Linux: /dev/ttyACM0, Windows: COM4)
+  DEFAULT_PORT: "/dev/ttyACM0",
 
   // Default baud rate
   // NOTE: If experiencing data corruption, try lowering to 57600 or 38400

@@ -6,7 +6,7 @@ const router = express.Router();
 
 // Box Serial Configuration
 const BOX_CONFIG = {
-  DEFAULT_PORT: "/dev/ttyUSB1", // Linux port for Box (different from CNC)
+  DEFAULT_PORT: "/dev/ttyACM0", // Linux port for Box (Arduino device)
   BAUD_RATE: 9600, // Box uses 9600 baud
   MAX_RECONNECT_ATTEMPTS: 10,
 };

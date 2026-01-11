@@ -26,7 +26,7 @@ const RecoveryButton = () => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          port: "/dev/ttyUSB0",
+          port: "/dev/ttyACM0",
           baudRate: 115200,
         }),
       });
