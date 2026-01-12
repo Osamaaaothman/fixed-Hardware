@@ -128,8 +128,8 @@ const StatusPage = () => {
         setShowCncPortSelector(false);
         addCncLog("success", `Connected to ${selectedCncPort}`);
         // Save connection state to localStorage for persistence
-        localStorage.setItem('cncConnected', 'true');
-        localStorage.setItem('cncPort', selectedCncPort);
+        localStorage.setItem("cncConnected", "true");
+        localStorage.setItem("cncPort", selectedCncPort);
         await fetchCncStatus();
       } else {
         throw new Error(result.error || "Connection failed");
@@ -151,8 +151,8 @@ const StatusPage = () => {
         toast.success("Disconnected from CNC successfully", { id: toastId });
         addCncLog("info", "Disconnected from CNC");
         // Clear connection state from localStorage
-        localStorage.removeItem('cncConnected');
-        localStorage.removeItem('cncPort');
+        localStorage.removeItem("cncConnected");
+        localStorage.removeItem("cncPort");
         await fetchCncStatus();
       } else {
         throw new Error(result.error || "Disconnect failed");
@@ -257,8 +257,8 @@ const StatusPage = () => {
       toast.success("Connected to Box successfully", { id: toastId });
       setShowBoxPortSelector(false);
       // Save connection state to localStorage for persistence
-      localStorage.setItem('boxConnected', 'true');
-      localStorage.setItem('boxPort', selectedBoxPort);
+      localStorage.setItem("boxConnected", "true");
+      localStorage.setItem("boxPort", selectedBoxPort);
     } catch (error) {
       toast.error(error.message || "Failed to connect to Box", { id: toastId });
     } finally {
@@ -273,8 +273,8 @@ const StatusPage = () => {
       await disconnectBox();
       toast.success("Disconnected from Box successfully", { id: toastId });
       // Clear connection state from localStorage
-      localStorage.removeItem('boxConnected');
-      localStorage.removeItem('boxPort');
+      localStorage.removeItem("boxConnected");
+      localStorage.removeItem("boxPort");
     } catch (error) {
       toast.error(error.message || "Failed to disconnect from Box", {
         id: toastId,
@@ -405,11 +405,11 @@ const StatusPage = () => {
   useEffect(() => {
     const autoReconnect = async () => {
       // Check if CNC was previously connected
-      const cncWasConnected = localStorage.getItem('cncConnected') === 'true';
-      const savedCncPort = localStorage.getItem('cncPort');
-      
+      const cncWasConnected = localStorage.getItem("cncConnected") === "true";
+      const savedCncPort = localStorage.getItem("cncPort");
+
       if (cncWasConnected && savedCncPort) {
-        console.log('[STATUS] Auto-reconnecting to CNC on', savedCncPort);
+        console.log("[STATUS] Auto-reconnecting to CNC on", savedCncPort);
         setSelectedCncPort(savedCncPort);
         try {
           const result = await connectSerial(savedCncPort);
@@ -418,30 +418,30 @@ const StatusPage = () => {
             toast.success(`Reconnected to CNC on ${savedCncPort}`);
           } else {
             // Connection failed, clear stored state
-            localStorage.removeItem('cncConnected');
-            localStorage.removeItem('cncPort');
+            localStorage.removeItem("cncConnected");
+            localStorage.removeItem("cncPort");
           }
         } catch (error) {
-          console.error('[STATUS] Auto-reconnect failed:', error);
-          localStorage.removeItem('cncConnected');
-          localStorage.removeItem('cncPort');
+          console.error("[STATUS] Auto-reconnect failed:", error);
+          localStorage.removeItem("cncConnected");
+          localStorage.removeItem("cncPort");
         }
       }
 
       // Check if Box was previously connected
-      const boxWasConnected = localStorage.getItem('boxConnected') === 'true';
-      const savedBoxPort = localStorage.getItem('boxPort');
-      
+      const boxWasConnected = localStorage.getItem("boxConnected") === "true";
+      const savedBoxPort = localStorage.getItem("boxPort");
+
       if (boxWasConnected && savedBoxPort) {
-        console.log('[STATUS] Auto-reconnecting to Box on', savedBoxPort);
+        console.log("[STATUS] Auto-reconnecting to Box on", savedBoxPort);
         setSelectedBoxPort(savedBoxPort);
         try {
           await connectBox(savedBoxPort);
           toast.success(`Reconnected to Box on ${savedBoxPort}`);
         } catch (error) {
-          console.error('[STATUS] Box auto-reconnect failed:', error);
-          localStorage.removeItem('boxConnected');
-          localStorage.removeItem('boxPort');
+          console.error("[STATUS] Box auto-reconnect failed:", error);
+          localStorage.removeItem("boxConnected");
+          localStorage.removeItem("boxPort");
         }
       }
     };
@@ -1027,49 +1027,152 @@ const StatusPage = () => {
                 Box Commands
               </h3>
 
-              {/* Preset Commands */}
-              <div className="grid grid-cols-2 gap-3 mb-4">
-                <button
-                  onClick={() => handleSendBoxCommand("writing")}
-                  disabled={!boxStatus.connected}
-                  className="btn btn-primary btn-sm gap-2"
-                >
-                  ✍️ Writing
-                </button>
+              {/* Mode Commands */}
+              <div className="space-y-4">
+                <div>
+                  <p className="text-xs text-base-content/60 mb-2 font-semibold">
+                    Mode Activation
+                  </p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      onClick={() => handleSendBoxCommand("pen1")}
+                      disabled={!boxStatus.connected}
+                      className="btn btn-sm btn-outline btn-primary gap-1"
+                    >
+                      🎨 Pen1
+                    </button>
+                    <button
+                      onClick={() => handleSendBoxCommand("pen2")}
+                      disabled={!boxStatus.connected}
+                      className="btn btn-sm btn-outline btn-primary gap-1"
+                    >
+                      🌀 Pen2
+                    </button>
+                    <button
+                      onClick={() => handleSendBoxCommand("erasing_pen")}
+                      disabled={!boxStatus.connected}
+                      className="btn btn-sm btn-outline btn-warning gap-1"
+                    >
+                      🧽 Erase Pen
+                    </button>
+                    <button
+                      onClick={() => handleSendBoxCommand("writing")}
+                      disabled={!boxStatus.connected}
+                      className="btn btn-sm btn-outline btn-info gap-1"
+                    >
+                      ✍️ Writing
+                    </button>
+                    <button
+                      onClick={() => handleSendBoxCommand("erasing")}
+                      disabled={!boxStatus.connected}
+                      className="btn btn-sm btn-outline btn-error gap-1"
+                    >
+                      🧹 Erasing
+                    </button>
+                    <button
+                      onClick={() => handleSendBoxCommand("screenshot")}
+                      disabled={!boxStatus.connected}
+                      className="btn btn-sm btn-outline btn-accent gap-1"
+                    >
+                      📷 Screenshot
+                    </button>
+                  </div>
+                </div>
 
-                <button
-                  onClick={() => handleSendBoxCommand("erasing")}
-                  disabled={!boxStatus.connected}
-                  className="btn btn-warning btn-sm gap-2"
-                >
-                  🧹 Erasing
-                </button>
+                <div>
+                  <p className="text-xs text-base-content/60 mb-2 font-semibold">
+                    Mode Exit
+                  </p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      onClick={() => handleSendBoxCommand("exit_pen1")}
+                      disabled={!boxStatus.connected}
+                      className="btn btn-xs btn-ghost gap-1"
+                    >
+                      ↩️ Exit Pen1
+                    </button>
+                    <button
+                      onClick={() => handleSendBoxCommand("exit_pen2")}
+                      disabled={!boxStatus.connected}
+                      className="btn btn-xs btn-ghost gap-1"
+                    >
+                      ↩️ Exit Pen2
+                    </button>
+                    <button
+                      onClick={() => handleSendBoxCommand("exit_erasing_pen")}
+                      disabled={!boxStatus.connected}
+                      className="btn btn-xs btn-ghost gap-1"
+                    >
+                      ↩️ Exit Erase Pen
+                    </button>
+                    <button
+                      onClick={() => handleSendBoxCommand("exit_writing")}
+                      disabled={!boxStatus.connected}
+                      className="btn btn-xs btn-ghost gap-1"
+                    >
+                      ↩️ Exit Writing
+                    </button>
+                    <button
+                      onClick={() => handleSendBoxCommand("exit_erasing")}
+                      disabled={!boxStatus.connected}
+                      className="btn btn-xs btn-ghost gap-1"
+                    >
+                      ↩️ Exit Erasing
+                    </button>
+                    <button
+                      onClick={() => handleSendBoxCommand("exit_screenshot")}
+                      disabled={!boxStatus.connected}
+                      className="btn btn-xs btn-ghost gap-1"
+                    >
+                      ↩️ Exit Screenshot
+                    </button>
+                  </div>
+                </div>
 
-                <button
-                  onClick={() => handleSendBoxCommand("ready")}
-                  disabled={!boxStatus.connected}
-                  className="btn btn-info btn-sm gap-2"
-                >
-                  ✅ Ready
-                </button>
-
-                <button
-                  onClick={() => handleSendBoxCommand("exiting")}
-                  disabled={!boxStatus.connected}
-                  className="btn btn-ghost btn-sm gap-2"
-                >
-                  🚪 Logout
-                </button>
+                <div>
+                  <p className="text-xs text-base-content/60 mb-2 font-semibold">
+                    System Control
+                  </p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      onClick={() => handleSendBoxCommand("ready")}
+                      disabled={!boxStatus.connected}
+                      className="btn btn-sm btn-success gap-1"
+                    >
+                      ✅ Ready
+                    </button>
+                    <button
+                      onClick={() => handleSendBoxCommand("exiting")}
+                      disabled={!boxStatus.connected}
+                      className="btn btn-sm btn-warning gap-1"
+                    >
+                      🚪 Logout
+                    </button>
+                    <button
+                      onClick={() => handleSendBoxCommand("locked")}
+                      disabled={!boxStatus.connected}
+                      className="btn btn-sm btn-error gap-1 col-span-2"
+                    >
+                      🔒 Force Lock
+                    </button>
+                  </div>
+                </div>
               </div>
 
               {/* Custom Command Input */}
-              <form onSubmit={handleSendCustomBoxCommand} className="space-y-3">
+              <form
+                onSubmit={handleSendCustomBoxCommand}
+                className="mt-4 space-y-2"
+              >
+                <p className="text-xs text-base-content/60 font-semibold">
+                  Custom Command
+                </p>
                 <div className="flex gap-2">
                   <input
                     type="text"
                     value={boxCommand}
                     onChange={(e) => setBoxCommand(e.target.value)}
-                    placeholder="Enter custom command"
+                    placeholder="e.g., pen1, writing, ready"
                     className="input input-bordered flex-1 font-mono text-sm"
                     disabled={!boxStatus.connected}
                   />
@@ -1081,6 +1184,9 @@ const StatusPage = () => {
                     <Send className="w-4 h-4" />
                   </button>
                 </div>
+                <p className="text-xs text-base-content/50">
+                  Commands are case-sensitive (use lowercase)
+                </p>
               </form>
 
               {!boxStatus.connected && (
