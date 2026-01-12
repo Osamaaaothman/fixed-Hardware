@@ -1,26 +1,14 @@
 import { useState, useEffect } from "react";
-import { Image, Settings2, FileCode, Camera, Upload } from "lucide-react";
+import { Image, Settings2, FileCode } from "lucide-react";
 import { toast } from "sonner";
 import GenerateButton from "../components/GenerateButton";
 import ImageUploader from "../components/image/ImageUploader";
 import ImageSettings from "../components/image/ImageSettings";
 import GcodePreviewModal from "../components/image/GcodePreviewModal";
 import StatsDisplay from "../components/image/StatsDisplay";
-import CameraViewer from "../components/image/CameraViewer";
-import CaptureModal from "../components/image/CaptureModal";
-import CaptureGallery from "../components/image/CaptureGallery";
 import { convertImageToGcode } from "../api/imageApi";
-import {
-  getStreamUrl,
-  captureImage,
-  getCapturesList,
-  deleteCapture,
-  getCaptureFile,
-} from "../api/cameraApi";
-import { API_CONFIG } from "../config/api.config";
 
 const ImagePage = () => {
-  const [activeTab, setActiveTab] = useState("upload"); // "upload" or "camera"
   const [selectedImage, setSelectedImage] = useState(null);
   const [settings, setSettings] = useState({
     imageSize: 300,
@@ -36,27 +24,10 @@ const ImagePage = () => {
   const [result, setResult] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  // Camera state
-  const [isCaptureModalOpen, setIsCaptureModalOpen] = useState(false);
-  const [isCapturing, setIsCapturing] = useState(false);
-  const [captures, setCaptures] = useState([]);
-  const [streamUrl, setStreamUrl] = useState("");
-
   // Clear any lingering toasts on mount
   useEffect(() => {
     toast.dismiss();
-    setStreamUrl(getStreamUrl());
-    loadCaptures();
   }, []);
-
-  const loadCaptures = async () => {
-    try {
-      const data = await getCapturesList();
-      setCaptures(data.captures || []);
-    } catch (error) {
-      console.error("Failed to load captures:", error);
-    }
-  };
 
   const handleImageSelect = (file) => {
     setSelectedImage(file);
@@ -66,46 +37,6 @@ const ImagePage = () => {
   const handleClearImage = () => {
     setSelectedImage(null);
     setResult(null);
-  };
-
-  const handleCaptureClick = () => {
-    setIsCaptureModalOpen(true);
-  };
-
-  const handleCapture = async (name) => {
-    setIsCapturing(true);
-    const toastId = toast.loading("Capturing image...");
-
-    try {
-      const data = await captureImage(name);
-      toast.success("Image captured successfully!", { id: toastId });
-      setIsCaptureModalOpen(false);
-      await loadCaptures();
-    } catch (error) {
-      console.error("Capture error:", error);
-      toast.error(`Failed to capture: ${error.message}`, { id: toastId });
-    } finally {
-      setIsCapturing(false);
-    }
-  };
-
-  const handleSelectCapture = async (capture) => {
-    try {
-      const blob = await getCaptureFile(capture.filename);
-      const file = new File([blob], capture.filename, { type: "image/jpeg" });
-      setSelectedImage(file);
-      setResult(null);
-    } catch (error) {
-      toast.error("Failed to load capture");
-    }
-  };
-
-  const handleDeleteCapture = async (id) => {
-    try {
-      await deleteCapture(id);
-    } catch (error) {
-      throw error;
-    }
   };
 
   const handleGenerate = async () => {
@@ -140,84 +71,21 @@ const ImagePage = () => {
 
         {/* Vertical Layout */}
         <div className="space-y-6">
-          {/* Image Source Section */}
+          {/* Image Upload Section */}
           <div className="bg-base-200 rounded-2xl p-8 shadow-xl border border-base-300">
             <div className="flex items-center gap-3 mb-6 pb-4 border-b-2 border-primary/20">
               <div className="w-1 h-6 bg-primary rounded-full"></div>
               <h3 className="text-xl font-bold flex items-center gap-2">
                 <Image className="w-5 h-5" />
-                Select Image Source
+                Upload Image
               </h3>
             </div>
 
-            {/* Tab Buttons */}
-            <div className="flex gap-2 mb-6">
-              <button
-                onClick={() => setActiveTab("upload")}
-                className={`btn flex-1 gap-2 ${
-                  activeTab === "upload" ? "btn-primary" : "btn-outline"
-                }`}
-              >
-                <Upload className="w-4 h-4" />
-                Upload Image
-              </button>
-              <button
-                onClick={() => setActiveTab("camera")}
-                className={`btn flex-1 gap-2 ${
-                  activeTab === "camera" ? "btn-primary" : "btn-outline"
-                }`}
-              >
-                <Camera className="w-4 h-4" />
-                ESP32 Camera
-              </button>
-            </div>
-
-            {/* Upload Tab */}
-            {activeTab === "upload" && (
-              <ImageUploader
-                onImageSelect={handleImageSelect}
-                selectedImage={selectedImage}
-                onClear={handleClearImage}
-              />
-            )}
-
-            {/* Camera Tab */}
-            {activeTab === "camera" && (
-              <div className="space-y-6">
-                {/* Camera Stream */}
-                <div>
-                  <h4 className="font-semibold mb-3 flex items-center gap-2">
-                    <Camera className="w-4 h-4" />
-                    Live Stream
-                  </h4>
-                  <CameraViewer streamUrl={streamUrl} className="w-full h-96" />
-
-                  <button
-                    onClick={handleCaptureClick}
-                    className="btn btn-primary btn-lg btn-block mt-4 gap-2"
-                  >
-                    <Camera className="w-5 h-5" />
-                    Capture Image
-                  </button>
-                </div>
-
-                {/* Captures Gallery */}
-                {captures.length > 0 && (
-                  <div>
-                    <h4 className="font-semibold mb-3 flex items-center gap-2">
-                      <Image className="w-4 h-4" />
-                      Recent Captures
-                    </h4>
-                    <CaptureGallery
-                      captures={captures}
-                      onSelect={handleSelectCapture}
-                      onDelete={handleDeleteCapture}
-                      onRefresh={loadCaptures}
-                    />
-                  </div>
-                )}
-              </div>
-            )}
+            <ImageUploader
+              onImageSelect={handleImageSelect}
+              selectedImage={selectedImage}
+              onClear={handleClearImage}
+            />
           </div>
 
           {/* Settings Section */}
