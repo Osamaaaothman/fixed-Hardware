@@ -303,51 +303,77 @@ const StatusPage = () => {
         : "Activating screenshot mode..."
     );
 
+    let screenshotModeActivated = skipModeActivation;
+
     try {
       // Only send screenshot command if triggered from app (not hardware)
       if (!skipModeActivation) {
-        await sendBoxCommand("screenshot");
-        // Wait for the Box to show camera icon/flash animation (500ms)
-        await new Promise((resolve) => setTimeout(resolve, 500));
+        try {
+          await sendBoxCommand("screenshot");
+          screenshotModeActivated = true;
+          // Wait for the Box to show camera icon/flash animation (500ms)
+          await new Promise((resolve) => setTimeout(resolve, 500));
+        } catch (cmdError) {
+          console.error("Failed to activate screenshot mode:", cmdError);
+          toast.error("Failed to activate screenshot mode on Box", {
+            id: toastId,
+          });
+          return;
+        }
       }
 
-      // Capture the image from camera
-      const timestamp = new Date()
-        .toLocaleString("en-US", {
-          year: "numeric",
-          month: "2-digit",
-          day: "2-digit",
-          hour: "2-digit",
-          minute: "2-digit",
-          second: "2-digit",
-          hour12: false,
-        })
-        .replace(/[/:]/g, "-")
-        .replace(", ", "_");
+      // Try to capture the image from camera (non-blocking)
+      try {
+        const timestamp = new Date()
+          .toLocaleString("en-US", {
+            year: "numeric",
+            month: "2-digit",
+            day: "2-digit",
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit",
+            hour12: false,
+          })
+          .replace(/[/:]/g, "-")
+          .replace(", ", "_");
 
-      const imageName = `Screenshot_${timestamp}`;
+        const imageName = `Screenshot_${timestamp}`;
 
-      await captureImage(imageName);
-
-      toast.success("Screenshot captured successfully!", { id: toastId });
+        await captureImage(imageName);
+        toast.success("Screenshot captured successfully!", { id: toastId });
+      } catch (captureError) {
+        console.error("Camera capture failed (continuing):", captureError);
+        toast.warning("Screenshot mode activated, but camera capture failed", {
+          id: toastId,
+        });
+      }
 
       // Automatically exit screenshot mode after 1 second
       setTimeout(async () => {
-        try {
-          await sendBoxCommand("exit_screenshot");
-        } catch (error) {
-          console.error("Failed to exit screenshot mode:", error);
+        if (screenshotModeActivated) {
+          try {
+            await sendBoxCommand("exit_screenshot");
+          } catch (error) {
+            console.error("Failed to exit screenshot mode:", error);
+          }
         }
       }, 1000);
     } catch (error) {
-      toast.error(error.message || "Failed to capture screenshot", {
+      console.error("Screenshot error:", error);
+      toast.error(error.message || "Failed to process screenshot", {
         id: toastId,
       });
+
       // Try to exit screenshot mode on error
-      try {
-        await sendBoxCommand("exit_screenshot");
-      } catch (exitError) {
-        console.error("Failed to exit screenshot mode after error:", exitError);
+      if (screenshotModeActivated) {
+        try {
+          await sendBoxCommand("exit_screenshot");
+        } catch (exitError) {
+          console.error(
+            "Failed to exit screenshot mode after error:",
+            exitError
+          );
+        }
       }
     }
   };
