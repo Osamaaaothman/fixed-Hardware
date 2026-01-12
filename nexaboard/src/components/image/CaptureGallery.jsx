@@ -220,6 +220,17 @@ const CaptureGallery = ({ captures, onSelect, onDelete, onRefresh }) => {
               <button
                 onClick={() => setShowAllModal(false)}
                 className="btn btn-primary"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+          <div
+            className="modal-backdrop"
+            onClick={() => setShowAllModal(false)}
+          ></div>
+        </div>
+      )}
 
       {/* Image View Modal */}
       {viewImageModal && (
@@ -287,17 +298,6 @@ const CaptureGallery = ({ captures, onSelect, onDelete, onRefresh }) => {
           <div
             className="modal-backdrop"
             onClick={() => setViewImageModal(null)}
-          ></div>
-        </div>
-      )}
-              >
-                Close
-              </button>
-            </div>
-          </div>
-          <div
-            className="modal-backdrop"
-            onClick={() => setShowAllModal(false)}
           ></div>
         </div>
       )}

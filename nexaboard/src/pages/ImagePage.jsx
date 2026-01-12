@@ -167,14 +167,6 @@ const ImagePage = () => {
         processedImage={result?.processedImage}
         settings={settings}
       />
-
-      {/* Capture Modal */}
-      <CaptureModal
-        isOpen={isCaptureModalOpen}
-        onClose={() => setIsCaptureModalOpen(false)}
-        onCapture={handleCapture}
-        isLoading={isCapturing}
-      />
     </div>
   );
 };
