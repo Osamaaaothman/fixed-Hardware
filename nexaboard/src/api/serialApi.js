@@ -1,4 +1,4 @@
-import { API_BASE_URL } from "../config/api.config";
+import { API_CONFIG } from "../config/api.config";
 
 /**
  * Serial API - CNC Connection Management
@@ -12,7 +12,7 @@ import { API_BASE_URL } from "../config/api.config";
  */
 export const connectSerial = async (port) => {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/serial/connect`, {
+    const response = await fetch(`${API_CONFIG.BASE_URL}/api/serial/connect`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -38,7 +38,7 @@ export const connectSerial = async (port) => {
  */
 export const disconnectSerial = async () => {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/serial/disconnect`, {
+    const response = await fetch(`${API_CONFIG.BASE_URL}/api/serial/disconnect`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -63,7 +63,7 @@ export const disconnectSerial = async () => {
  */
 export const getSerialStatus = async () => {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/serial/status`);
+    const response = await fetch(`${API_CONFIG.BASE_URL}/api/serial/status`);
 
     if (!response.ok) {
       const error = await response.json();
@@ -83,7 +83,7 @@ export const getSerialStatus = async () => {
  */
 export const listSerialPorts = async () => {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/serial/ports`);
+    const response = await fetch(`${API_CONFIG.BASE_URL}/api/serial/ports`);
 
     if (!response.ok) {
       const error = await response.json();
@@ -104,7 +104,7 @@ export const listSerialPorts = async () => {
  */
 export const sendSerialCommand = async (command) => {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/serial/command`, {
+    const response = await fetch(`${API_CONFIG.BASE_URL}/api/serial/command`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -130,7 +130,7 @@ export const sendSerialCommand = async (command) => {
  */
 export const getLastPosition = async () => {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/serial/last-position`);
+    const response = await fetch(`${API_CONFIG.BASE_URL}/api/serial/last-position`);
 
     if (!response.ok) {
       const error = await response.json();
@@ -150,7 +150,7 @@ export const getLastPosition = async () => {
  */
 export const recoverSerial = async () => {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/serial/recover`, {
+    const response = await fetch(`${API_CONFIG.BASE_URL}/api/serial/recover`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

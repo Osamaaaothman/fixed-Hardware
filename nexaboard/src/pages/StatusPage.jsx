@@ -43,7 +43,7 @@ const StatusPage = () => {
   });
   const [cncActivityLog, setCncActivityLog] = useState([]);
   const [cncPorts, setCncPorts] = useState([]);
-  const [selectedCncPort, setSelectedCncPort] = useState("COM3");
+  const [selectedCncPort, setSelectedCncPort] = useState("/dev/ttyUSB0");
   const [isConnectingCnc, setIsConnectingCnc] = useState(false);
   const [cncCommand, setCncCommand] = useState("");
   const [cncCommandHistory, setCncCommandHistory] = useState([]);
@@ -61,7 +61,7 @@ const StatusPage = () => {
   });
   const [boxActivityLog, setBoxActivityLog] = useState([]);
   const [boxPorts, setBoxPorts] = useState([]);
-  const [selectedBoxPort, setSelectedBoxPort] = useState("COM4");
+  const [selectedBoxPort, setSelectedBoxPort] = useState("/dev/ttyACM0");
   const [isConnectingBox, setIsConnectingBox] = useState(false);
   const [boxCommand, setBoxCommand] = useState("");
   const [showBoxPortSelector, setShowBoxPortSelector] = useState(false);
@@ -127,6 +127,9 @@ const StatusPage = () => {
         toast.success("Connected to CNC successfully", { id: toastId });
         setShowCncPortSelector(false);
         addCncLog("success", `Connected to ${selectedCncPort}`);
+        // Save connection state to localStorage for persistence
+        localStorage.setItem('cncConnected', 'true');
+        localStorage.setItem('cncPort', selectedCncPort);
         await fetchCncStatus();
       } else {
         throw new Error(result.error || "Connection failed");
@@ -147,6 +150,9 @@ const StatusPage = () => {
       if (result.success) {
         toast.success("Disconnected from CNC successfully", { id: toastId });
         addCncLog("info", "Disconnected from CNC");
+        // Clear connection state from localStorage
+        localStorage.removeItem('cncConnected');
+        localStorage.removeItem('cncPort');
         await fetchCncStatus();
       } else {
         throw new Error(result.error || "Disconnect failed");
@@ -250,6 +256,9 @@ const StatusPage = () => {
       await connectBox(selectedBoxPort);
       toast.success("Connected to Box successfully", { id: toastId });
       setShowBoxPortSelector(false);
+      // Save connection state to localStorage for persistence
+      localStorage.setItem('boxConnected', 'true');
+      localStorage.setItem('boxPort', selectedBoxPort);
     } catch (error) {
       toast.error(error.message || "Failed to connect to Box", { id: toastId });
     } finally {
@@ -263,6 +272,9 @@ const StatusPage = () => {
     try {
       await disconnectBox();
       toast.success("Disconnected from Box successfully", { id: toastId });
+      // Clear connection state from localStorage
+      localStorage.removeItem('boxConnected');
+      localStorage.removeItem('boxPort');
     } catch (error) {
       toast.error(error.message || "Failed to disconnect from Box", {
         id: toastId,
@@ -387,6 +399,56 @@ const StatusPage = () => {
     }, 2000);
 
     return () => clearInterval(interval);
+  }, []);
+
+  // ===== Auto-reconnect on page load =====
+  useEffect(() => {
+    const autoReconnect = async () => {
+      // Check if CNC was previously connected
+      const cncWasConnected = localStorage.getItem('cncConnected') === 'true';
+      const savedCncPort = localStorage.getItem('cncPort');
+      
+      if (cncWasConnected && savedCncPort) {
+        console.log('[STATUS] Auto-reconnecting to CNC on', savedCncPort);
+        setSelectedCncPort(savedCncPort);
+        try {
+          const result = await connectSerial(savedCncPort);
+          if (result.success) {
+            addCncLog("success", `Auto-reconnected to ${savedCncPort}`);
+            toast.success(`Reconnected to CNC on ${savedCncPort}`);
+          } else {
+            // Connection failed, clear stored state
+            localStorage.removeItem('cncConnected');
+            localStorage.removeItem('cncPort');
+          }
+        } catch (error) {
+          console.error('[STATUS] Auto-reconnect failed:', error);
+          localStorage.removeItem('cncConnected');
+          localStorage.removeItem('cncPort');
+        }
+      }
+
+      // Check if Box was previously connected
+      const boxWasConnected = localStorage.getItem('boxConnected') === 'true';
+      const savedBoxPort = localStorage.getItem('boxPort');
+      
+      if (boxWasConnected && savedBoxPort) {
+        console.log('[STATUS] Auto-reconnecting to Box on', savedBoxPort);
+        setSelectedBoxPort(savedBoxPort);
+        try {
+          await connectBox(savedBoxPort);
+          toast.success(`Reconnected to Box on ${savedBoxPort}`);
+        } catch (error) {
+          console.error('[STATUS] Box auto-reconnect failed:', error);
+          localStorage.removeItem('boxConnected');
+          localStorage.removeItem('boxPort');
+        }
+      }
+    };
+
+    // Delay auto-reconnect slightly to let the component fully mount
+    const timer = setTimeout(autoReconnect, 1000);
+    return () => clearTimeout(timer);
   }, []);
 
   // ===== Helper functions =====

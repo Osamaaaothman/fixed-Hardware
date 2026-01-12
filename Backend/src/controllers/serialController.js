@@ -655,10 +655,11 @@ router.post("/command", async (req, res) => {
       lastCommand = command;
       
       // Emit Socket.IO event
-      emitSerialEvent(\"response\", { 
+      emitSerialEvent("response", { 
         command, 
-        response: arduinoResponse || \"ok\" 
-      });\n
+        response: arduinoResponse || "ok" 
+      });
+      
       return res.json({
         success: true,
         message: `Command sent: ${command}`,
