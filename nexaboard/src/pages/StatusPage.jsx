@@ -478,7 +478,7 @@ const StatusPage = () => {
       hasAttemptedReconnect = true;
 
       // Wait for initial status fetch to complete
-      await new Promise(resolve => setTimeout(resolve, 500));
+      await new Promise((resolve) => setTimeout(resolve, 500));
 
       // Check if CNC was previously connected
       const cncWasConnected = localStorage.getItem("cncConnected") === "true";
