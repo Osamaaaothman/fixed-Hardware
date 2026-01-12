@@ -75,13 +75,19 @@ router.post("/capture", async (req, res) => {
     }
 
     // Fetch image from ESP32 camera
-    const response = await fetch(ESP32_CAPTURE_URL);
+    console.log(`[CAMERA] Attempting to capture from ${ESP32_CAPTURE_URL}`);
+    const response = await fetch(ESP32_CAPTURE_URL, {
+      timeout: 10000, // 10 second timeout
+    });
 
     if (!response.ok) {
       throw new Error(`ESP32 camera returned status ${response.status}`);
     }
 
-    const buffer = await response.buffer();
+    const arrayBuffer = await response.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+
+    console.log(`[CAMERA] Captured ${buffer.length} bytes from camera`);
 
     // Generate unique filename
     const id = uuidv4();
@@ -107,16 +113,29 @@ router.post("/capture", async (req, res) => {
     data.captures.unshift(capture); // Add to beginning
     writeCapturesData(data);
 
+    console.log(`[CAMERA] Image saved as ${filename}`);
+
     res.json({
       success: true,
       capture,
       message: "Image captured successfully",
     });
   } catch (error) {
-    console.error("Camera capture error:", error);
+    console.error("[CAMERA] Capture error:", error);
+    
+    // Provide more detailed error messages
+    let errorMessage = "Failed to capture image from camera";
+    if (error.code === 'ECONNREFUSED') {
+      errorMessage = `Camera not reachable at ${ESP32_CAPTURE_URL}. Please check camera connection.`;
+    } else if (error.code === 'ETIMEDOUT') {
+      errorMessage = `Camera timeout at ${ESP32_CAPTURE_URL}. Camera may be busy or offline.`;
+    } else if (error.message) {
+      errorMessage = error.message;
+    }
+    
     res.status(500).json({
       success: false,
-      message: error.message || "Failed to capture image from camera",
+      message: errorMessage,
     });
   }
 });

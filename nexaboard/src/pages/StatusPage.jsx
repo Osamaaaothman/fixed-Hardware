@@ -306,6 +306,14 @@ const StatusPage = () => {
     let screenshotModeActivated = skipModeActivation;
 
     try {
+      // Check if Box is connected before proceeding
+      if (!boxStatus.connected) {
+        toast.error("Box is not connected. Please connect to Box first.", {
+          id: toastId,
+        });
+        return;
+      }
+
       // Only send screenshot command if triggered from app (not hardware)
       if (!skipModeActivation) {
         try {
@@ -343,7 +351,7 @@ const StatusPage = () => {
         toast.success("Screenshot captured successfully!", { id: toastId });
       } catch (captureError) {
         console.error("Camera capture failed (continuing):", captureError);
-        toast.warning("Screenshot mode activated, but camera capture failed", {
+        toast.warning("Screenshot mode activated, but camera capture failed. Check camera connection.", {
           id: toastId,
         });
       }
