@@ -6,6 +6,9 @@ import {
   Calendar,
   FileText,
   Eye,
+  Download,
+  X,
+  Maximize2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { API_CONFIG } from "../../config/api.config";
@@ -13,6 +16,7 @@ import { API_CONFIG } from "../../config/api.config";
 const CaptureGallery = ({ captures, onSelect, onDelete, onRefresh }) => {
   const [selectedId, setSelectedId] = useState(null);
   const [showAllModal, setShowAllModal] = useState(false);
+  const [viewImageModal, setViewImageModal] = useState(null);
 
   const formatDate = (timestamp) => {
     const date = new Date(timestamp);
@@ -36,6 +40,30 @@ const CaptureGallery = ({ captures, onSelect, onDelete, onRefresh }) => {
     setSelectedId(capture.id);
     onSelect(capture);
     toast.success(`Selected: ${capture.name}`);
+  };
+
+  const handleViewImage = (capture, e) => {
+    e.stopPropagation();
+    setViewImageModal(capture);
+  };
+
+  const handleDownload = async (capture) => {
+    try {
+      const imageUrl = getImageUrl(capture.filename);
+      const response = await fetch(imageUrl);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${capture.name}.jpg`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      toast.success("Image downloaded");
+    } catch (error) {
+      toast.error("Failed to download image");
+    }
   };
 
   const handleDelete = async (capture, e) => {
@@ -94,7 +122,18 @@ const CaptureGallery = ({ captures, onSelect, onDelete, onRefresh }) => {
       </div>
 
       {/* Overlay on Hover */}
-      <div className="absolute inset-0 bg-gradient-to-t from-base-100/90 via-base-100/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex flex-col justify-end p-3">
+      <div className="absolute inset-0 bg-gradient-to-t from-base-100/90 via-base-100/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex flex-col justify-between p-3">
+        {/* View Button */}
+        <div className="flex justify-center items-center flex-1">
+          <button
+            onClick={(e) => handleViewImage(capture, e)}
+            className="btn btn-primary btn-circle btn-lg shadow-lg"
+            title="View full size"
+          >
+            <Maximize2 className="w-6 h-6" />
+          </button>
+        </div>
+        
         <div className="space-y-1">
           {showFullInfo && (
             <>
@@ -181,6 +220,76 @@ const CaptureGallery = ({ captures, onSelect, onDelete, onRefresh }) => {
               <button
                 onClick={() => setShowAllModal(false)}
                 className="btn btn-primary"
+
+      {/* Image View Modal */}
+      {viewImageModal && (
+        <div className="modal modal-open">
+          <div className="modal-box max-w-6xl bg-base-100">
+            {/* Header */}
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="text-2xl font-bold flex items-center gap-2">
+                  <ImageIcon className="w-6 h-6 text-primary" />
+                  {viewImageModal.name}
+                </h3>
+                <p className="text-sm text-base-content/60 mt-1">
+                  {formatDate(viewImageModal.timestamp)} • {formatSize(viewImageModal.size)}
+                </p>
+              </div>
+              <button
+                onClick={() => setViewImageModal(null)}
+                className="btn btn-sm btn-circle btn-ghost"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Image */}
+            <div className="bg-base-300 rounded-xl overflow-hidden mb-4">
+              <img
+                src={getImageUrl(viewImageModal.filename)}
+                alt={viewImageModal.name}
+                className="w-full h-auto max-h-[70vh] object-contain"
+              />
+            </div>
+
+            {/* Actions */}
+            <div className="flex gap-2">
+              <button
+                onClick={() => handleDownload(viewImageModal)}
+                className="btn btn-primary flex-1 gap-2"
+              >
+                <Download className="w-5 h-5" />
+                Download Image
+              </button>
+              <button
+                onClick={() => {
+                  handleSelect(viewImageModal);
+                  setViewImageModal(null);
+                }}
+                className="btn btn-success flex-1 gap-2"
+              >
+                <ImageIcon className="w-5 h-5" />
+                Select for Conversion
+              </button>
+              <button
+                onClick={async (e) => {
+                  await handleDelete(viewImageModal, e);
+                  setViewImageModal(null);
+                }}
+                className="btn btn-error gap-2"
+              >
+                <Trash2 className="w-5 h-5" />
+                Delete
+              </button>
+            </div>
+          </div>
+          <div
+            className="modal-backdrop"
+            onClick={() => setViewImageModal(null)}
+          ></div>
+        </div>
+      )}
               >
                 Close
               </button>
