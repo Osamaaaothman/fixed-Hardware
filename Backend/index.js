@@ -44,6 +44,9 @@ async function initializeQueue() {
 // Initialize controllers
 initControllers(app);
 
+// Serve static files for uploads
+app.use("/uploads", express.static("uploads"));
+
 // Basic route
 app.get("/", (req, res) => {
   res.send("Server is running!");
