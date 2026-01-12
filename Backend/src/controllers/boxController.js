@@ -167,6 +167,66 @@ const parseBoxMessage = (message, io) => {
       );
       break;
 
+    case "SCREENSHOT_REQUEST":
+      updateBoxStatus(
+        {
+          currentMode: "SCREENSHOT",
+          lastMessage: msg,
+        },
+        io
+      );
+      // Emit special event to trigger automatic camera capture
+      if (io) {
+        console.log("[BOX] Emitting box:screenshot-request event");
+        io.emit("box:screenshot-request", {
+          timestamp: new Date().toISOString(),
+          source: "hardware_keypad",
+        });
+      }
+      break;
+
+    case "MODE_PEN1":
+      updateBoxStatus(
+        {
+          currentMode: "PEN1",
+          lastMessage: msg,
+        },
+        io
+      );
+      break;
+
+    case "MODE_PEN2":
+      updateBoxStatus(
+        {
+          currentMode: "PEN2",
+          lastMessage: msg,
+        },
+        io
+      );
+      break;
+
+    case "MODE_ERASING_PEN":
+      updateBoxStatus(
+        {
+          currentMode: "ERASING_PEN",
+          lastMessage: msg,
+        },
+        io
+      );
+      break;
+
+    case "MaxAttemptAccessed":
+      updateBoxStatus(
+        {
+          loggedIn: false,
+          currentMode: "LOCKED",
+          lastMessage: msg,
+          error: "Max login attempts reached - system locked",
+        },
+        io
+      );
+      break;
+
     default:
       // Unknown message
       updateBoxStatus({ lastMessage: msg }, io);

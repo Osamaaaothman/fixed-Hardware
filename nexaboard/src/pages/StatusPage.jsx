@@ -296,17 +296,22 @@ const StatusPage = () => {
     }
   };
 
-  const handleScreenshot = async () => {
-    const toastId = toast.loading("Activating screenshot mode...");
+  const handleScreenshot = async (skipModeActivation = false) => {
+    const toastId = toast.loading(
+      skipModeActivation
+        ? "Capturing screenshot from hardware..."
+        : "Activating screenshot mode..."
+    );
 
     try {
-      // First send screenshot command to Box
-      await sendBoxCommand("screenshot");
+      // Only send screenshot command if triggered from app (not hardware)
+      if (!skipModeActivation) {
+        await sendBoxCommand("screenshot");
+        // Wait for the Box to show camera icon/flash animation (500ms)
+        await new Promise((resolve) => setTimeout(resolve, 500));
+      }
 
-      // Wait for the Box to show camera icon/flash animation (500ms)
-      await new Promise((resolve) => setTimeout(resolve, 500));
-
-      // Then capture the image from camera
+      // Capture the image from camera
       const timestamp = new Date()
         .toLocaleString("en-US", {
           year: "numeric",
@@ -393,6 +398,13 @@ const StatusPage = () => {
     newSocket.on("box:error", (data) => {
       console.error("[STATUS] Box error:", data);
       toast.error(data.message);
+    });
+
+    // Box screenshot request from hardware keypad
+    newSocket.on("box:screenshot-request", (data) => {
+      console.log("[STATUS] Hardware screenshot request:", data);
+      // Trigger automatic screenshot capture (skip mode activation since hardware already did it)
+      handleScreenshot(true);
     });
 
     // CNC/Serial events (to be added in backend)

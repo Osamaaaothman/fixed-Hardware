@@ -13,28 +13,49 @@ export function getStreamUrl() {
 /**
  * Capture image from ESP32 camera
  * @param {string} name - Name for the captured image
+ * @param {number} retries - Number of retry attempts (default: 3)
  * @returns {Promise<{success: boolean, capture: object, message: string}>}
  */
-export async function captureImage(name) {
-  try {
-    const response = await fetch(`${API_BASE_URL}/api/camera/capture`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ name }),
-    });
+export async function captureImage(name, retries = 3) {
+  let lastError;
 
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || "Failed to capture image");
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      // Add small delay between retries to let camera free up
+      if (attempt > 0) {
+        await new Promise((resolve) => setTimeout(resolve, 500 * attempt));
+        console.log(`Camera capture retry attempt ${attempt}/${retries}`);
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/camera/capture`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ name }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || "Failed to capture image");
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error(
+        `Camera capture error (attempt ${attempt + 1}/${retries + 1}):`,
+        error
+      );
+      lastError = error;
+
+      // If it's the last attempt, throw the error
+      if (attempt === retries) {
+        throw error;
+      }
     }
-
-    return await response.json();
-  } catch (error) {
-    console.error("Camera capture error:", error);
-    throw error;
   }
+
+  throw lastError;
 }
 
 /**
