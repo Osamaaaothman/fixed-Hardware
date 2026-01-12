@@ -471,8 +471,28 @@ router.post("/command", (req, res) => {
     return res.status(400).json({ error: "No command provided" });
   }
 
-  // Validate command
-  const validCommands = ["writing", "erasing", "exiting", "ready", "locked"];
+  // Validate command - All valid Box commands from documentation
+  const validCommands = [
+    // Mode Activation
+    "pen1",
+    "pen2",
+    "erasing_pen",
+    "writing",
+    "erasing",
+    "screenshot",
+    // Mode Exit
+    "exit_pen1",
+    "exit_pen2",
+    "exit_erasing_pen",
+    "exit_writing",
+    "exit_erasing",
+    "exit_screenshot",
+    // System Control
+    "ready",
+    "exiting",
+    "locked",
+  ];
+
   if (!validCommands.includes(command)) {
     return res.status(400).json({
       error: `Invalid command. Valid commands: ${validCommands.join(", ")}`,
