@@ -31,6 +31,7 @@ import {
   listSerialPorts,
   sendSerialCommand,
 } from "../api/serialApi";
+import { captureImage } from "../api/cameraApi";
 
 const StatusPage = () => {
   // CNC/Serial state
@@ -292,6 +293,57 @@ const StatusPage = () => {
       toast.error(error.message || `Failed to send command: ${command}`, {
         id: toastId,
       });
+    }
+  };
+
+  const handleScreenshot = async () => {
+    const toastId = toast.loading("Activating screenshot mode...");
+
+    try {
+      // First send screenshot command to Box
+      await sendBoxCommand("screenshot");
+
+      // Wait for the Box to show camera icon/flash animation (500ms)
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
+      // Then capture the image from camera
+      const timestamp = new Date()
+        .toLocaleString("en-US", {
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+          hour12: false,
+        })
+        .replace(/[/:]/g, "-")
+        .replace(", ", "_");
+
+      const imageName = `Screenshot_${timestamp}`;
+
+      await captureImage(imageName);
+
+      toast.success("Screenshot captured successfully!", { id: toastId });
+
+      // Automatically exit screenshot mode after 1 second
+      setTimeout(async () => {
+        try {
+          await sendBoxCommand("exit_screenshot");
+        } catch (error) {
+          console.error("Failed to exit screenshot mode:", error);
+        }
+      }, 1000);
+    } catch (error) {
+      toast.error(error.message || "Failed to capture screenshot", {
+        id: toastId,
+      });
+      // Try to exit screenshot mode on error
+      try {
+        await sendBoxCommand("exit_screenshot");
+      } catch (exitError) {
+        console.error("Failed to exit screenshot mode after error:", exitError);
+      }
     }
   };
 
@@ -1070,7 +1122,7 @@ const StatusPage = () => {
                       🧹 Erasing
                     </button>
                     <button
-                      onClick={() => handleSendBoxCommand("screenshot")}
+                      onClick={handleScreenshot}
                       disabled={!boxStatus.connected}
                       className="btn btn-sm btn-outline btn-accent gap-1"
                     >
