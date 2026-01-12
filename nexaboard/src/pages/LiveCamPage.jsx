@@ -10,6 +10,7 @@ import {
   getCapturesList,
   deleteCapture,
 } from "../api/cameraApi";
+import { sendBoxCommand } from "../api/boxApi";
 
 const LiveCamPage = () => {
   const [isCaptureModalOpen, setIsCaptureModalOpen] = useState(false);
@@ -38,6 +39,8 @@ const LiveCamPage = () => {
   };
 
   const handleCapture = async (name) => {
+              await sendBoxCommand("screenshot");
+    
     setIsCapturing(true);
     const toastId = toast.loading("Capturing image...");
 
@@ -46,6 +49,8 @@ const LiveCamPage = () => {
       toast.success("Image captured successfully!", { id: toastId });
       setIsCaptureModalOpen(false);
       await loadCaptures();
+      await sendBoxCommand("exit_screenshot");
+
     } catch (error) {
       console.error("Capture error:", error);
       toast.error(`Failed to capture: ${error.message}`, { id: toastId });

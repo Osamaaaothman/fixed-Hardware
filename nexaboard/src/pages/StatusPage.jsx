@@ -321,6 +321,8 @@ const StatusPage = () => {
           screenshotModeActivated = true;
           // Wait for the Box to show camera icon/flash animation (500ms)
           await new Promise((resolve) => setTimeout(resolve, 500));
+          await sendBoxCommand("exit_screenshot");
+
         } catch (cmdError) {
           console.error("Failed to activate screenshot mode:", cmdError);
           toast.error("Failed to activate screenshot mode on Box", {
