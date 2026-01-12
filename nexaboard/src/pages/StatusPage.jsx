@@ -465,14 +465,27 @@ const StatusPage = () => {
     return () => clearInterval(interval);
   }, []);
 
-  // ===== Auto-reconnect on page load =====
+  // ===== Auto-reconnect on page load (only once on initial mount) =====
   useEffect(() => {
+    let hasAttemptedReconnect = false;
+
     const autoReconnect = async () => {
+      // Prevent multiple reconnection attempts
+      if (hasAttemptedReconnect) {
+        console.log("[STATUS] Skipping reconnect - already attempted");
+        return;
+      }
+      hasAttemptedReconnect = true;
+
+      // Wait for initial status fetch to complete
+      await new Promise(resolve => setTimeout(resolve, 500));
+
       // Check if CNC was previously connected
       const cncWasConnected = localStorage.getItem("cncConnected") === "true";
       const savedCncPort = localStorage.getItem("cncPort");
 
-      if (cncWasConnected && savedCncPort) {
+      // Only reconnect if not already connected
+      if (cncWasConnected && savedCncPort && !cncStatus.connected) {
         console.log("[STATUS] Auto-reconnecting to CNC on", savedCncPort);
         setSelectedCncPort(savedCncPort);
         try {
@@ -490,13 +503,16 @@ const StatusPage = () => {
           localStorage.removeItem("cncConnected");
           localStorage.removeItem("cncPort");
         }
+      } else if (cncStatus.connected) {
+        console.log("[STATUS] CNC already connected, skipping auto-reconnect");
       }
 
       // Check if Box was previously connected
       const boxWasConnected = localStorage.getItem("boxConnected") === "true";
       const savedBoxPort = localStorage.getItem("boxPort");
 
-      if (boxWasConnected && savedBoxPort) {
+      // Only reconnect if not already connected
+      if (boxWasConnected && savedBoxPort && !boxStatus.connected) {
         console.log("[STATUS] Auto-reconnecting to Box on", savedBoxPort);
         setSelectedBoxPort(savedBoxPort);
         try {
@@ -507,12 +523,17 @@ const StatusPage = () => {
           localStorage.removeItem("boxConnected");
           localStorage.removeItem("boxPort");
         }
+      } else if (boxStatus.connected) {
+        console.log("[STATUS] Box already connected, skipping auto-reconnect");
       }
     };
 
-    // Delay auto-reconnect slightly to let the component fully mount
+    // Delay auto-reconnect slightly to let the component fully mount and status fetch
     const timer = setTimeout(autoReconnect, 1000);
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      hasAttemptedReconnect = false;
+    };
   }, []);
 
   // ===== Helper functions =====
