@@ -356,29 +356,29 @@ const StatusPage = () => {
         });
       }
 
-      // Automatically exit screenshot mode after 1 second
+      // Return to MENU mode after 500ms
       setTimeout(async () => {
         if (screenshotModeActivated) {
           try {
-            await sendBoxCommand("exit_screenshot");
+            await sendBoxCommand("ready");
           } catch (error) {
-            console.error("Failed to exit screenshot mode:", error);
+            console.error("Failed to return to menu:", error);
           }
         }
-      }, 1000);
+      }, 500);
     } catch (error) {
       console.error("Screenshot error:", error);
       toast.error(error.message || "Failed to process screenshot", {
         id: toastId,
       });
 
-      // Try to exit screenshot mode on error
+      // Try to return to menu on error
       if (screenshotModeActivated) {
         try {
-          await sendBoxCommand("exit_screenshot");
+          await sendBoxCommand("ready");
         } catch (exitError) {
           console.error(
-            "Failed to exit screenshot mode after error:",
+            "Failed to return to menu after error:",
             exitError
           );
         }
