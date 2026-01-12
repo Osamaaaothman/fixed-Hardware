@@ -4,7 +4,7 @@ import {
   Trash2,
   Image as ImageIcon,
   Calendar,
-  FileSize,
+  FileText,
   Eye,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -103,7 +103,7 @@ const CaptureGallery = ({ captures, onSelect, onDelete, onRefresh }) => {
                 {formatDate(capture.timestamp)}
               </div>
               <div className="flex items-center gap-2 text-xs text-base-content/80">
-                <FileSize className="w-3 h-3" />
+                <FileText className="w-3 h-3" />
                 {formatSize(capture.size)}
               </div>
             </>
