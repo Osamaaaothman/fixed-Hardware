@@ -1171,42 +1171,58 @@ const StatusPage = () => {
                   <div className="grid grid-cols-2 gap-2">
                     <button
                       onClick={() => handleSendBoxCommand("exit_pen1")}
-                      disabled={!boxStatus.connected}
+                      disabled={
+                        !boxStatus.connected || boxStatus.currentMode !== "PEN1"
+                      }
                       className="btn btn-xs btn-ghost gap-1"
                     >
                       ↩️ Exit Pen1
                     </button>
                     <button
                       onClick={() => handleSendBoxCommand("exit_pen2")}
-                      disabled={!boxStatus.connected}
+                      disabled={
+                        !boxStatus.connected || boxStatus.currentMode !== "PEN2"
+                      }
                       className="btn btn-xs btn-ghost gap-1"
                     >
                       ↩️ Exit Pen2
                     </button>
                     <button
                       onClick={() => handleSendBoxCommand("exit_erasing_pen")}
-                      disabled={!boxStatus.connected}
+                      disabled={
+                        !boxStatus.connected ||
+                        boxStatus.currentMode !== "ERASING_PEN"
+                      }
                       className="btn btn-xs btn-ghost gap-1"
                     >
                       ↩️ Exit Erase Pen
                     </button>
                     <button
                       onClick={() => handleSendBoxCommand("exit_writing")}
-                      disabled={!boxStatus.connected}
+                      disabled={
+                        !boxStatus.connected ||
+                        boxStatus.currentMode !== "WRITING"
+                      }
                       className="btn btn-xs btn-ghost gap-1"
                     >
                       ↩️ Exit Writing
                     </button>
                     <button
                       onClick={() => handleSendBoxCommand("exit_erasing")}
-                      disabled={!boxStatus.connected}
+                      disabled={
+                        !boxStatus.connected ||
+                        boxStatus.currentMode !== "ERASING"
+                      }
                       className="btn btn-xs btn-ghost gap-1"
                     >
                       ↩️ Exit Erasing
                     </button>
                     <button
                       onClick={() => handleSendBoxCommand("exit_screenshot")}
-                      disabled={!boxStatus.connected}
+                      disabled={
+                        !boxStatus.connected ||
+                        boxStatus.currentMode !== "SCREENSHOT"
+                      }
                       className="btn btn-xs btn-ghost gap-1"
                     >
                       ↩️ Exit Screenshot
