@@ -1,24 +1,22 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Activity,
   Wifi,
   WifiOff,
   Lock,
   Unlock,
-  Clock,
   AlertCircle,
-  CheckCircle2,
   Power,
   Send,
   RefreshCw,
   Terminal,
-  Monitor,
   Box as BoxIcon,
   Cpu,
+  Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { io } from "socket.io-client";
-import { SOCKET_CONFIG, API_CONFIG } from "../config/api.config.js";
+import { SOCKET_CONFIG } from "../config/api.config.js";
 import {
   connectBox,
   disconnectBox,
@@ -26,8 +24,32 @@ import {
   sendBoxCommand,
   listBoxPorts,
 } from "../api/boxApi";
+import {
+  connectSerial,
+  disconnectSerial,
+  getSerialStatus,
+  listSerialPorts,
+  sendSerialCommand,
+} from "../api/serialApi";
 
 const StatusPage = () => {
+  // CNC/Serial state
+  const [cncStatus, setCncStatus] = useState({
+    connected: false,
+    port: null,
+    isDrawing: false,
+    position: { x: 0, y: 0, z: -2.3 },
+    lastCommand: null,
+  });
+  const [cncActivityLog, setCncActivityLog] = useState([]);
+  const [cncPorts, setCncPorts] = useState([]);
+  const [selectedCncPort, setSelectedCncPort] = useState("COM3");
+  const [isConnectingCnc, setIsConnectingCnc] = useState(false);
+  const [cncCommand, setCncCommand] = useState("");
+  const [cncCommandHistory, setCncCommandHistory] = useState([]);
+  const [historyIndex, setHistoryIndex] = useState(-1);
+  const [showCncPortSelector, setShowCncPortSelector] = useState(false);
+
   // Box state
   const [boxStatus, setBoxStatus] = useState({
     connected: false,
@@ -36,28 +58,167 @@ const StatusPage = () => {
     currentMode: "DISCONNECTED",
     lastMessage: null,
     lastActivity: null,
-    reconnectAttempts: 0,
-    error: null,
   });
   const [boxActivityLog, setBoxActivityLog] = useState([]);
-  const [availablePorts, setAvailablePorts] = useState([]);
-  const [selectedPort, setSelectedPort] = useState("/dev/ttyACM0");
-  const [isConnecting, setIsConnecting] = useState(false);
-  const [showPortSelector, setShowPortSelector] = useState(false);
+  const [boxPorts, setBoxPorts] = useState([]);
+  const [selectedBoxPort, setSelectedBoxPort] = useState("COM4");
+  const [isConnectingBox, setIsConnectingBox] = useState(false);
+  const [boxCommand, setBoxCommand] = useState("");
+  const [showBoxPortSelector, setShowBoxPortSelector] = useState(false);
 
   // System state
   const [systemLocked, setSystemLocked] = useState(false);
   const [socket, setSocket] = useState(null);
 
-  // CNC state (from serial controller)
-  const [cncStatus, setCncStatus] = useState({
-    connected: false,
-    port: "/dev/ttyACM0",
-    isDrawing: false,
-    position: { x: 0, y: 0, z: -2.3 },
-  });
+  // Refs for auto-scroll
+  const cncLogRef = useRef(null);
+  const boxLogRef = useRef(null);
 
-  // Fetch initial data
+  // Auto-scroll logs to bottom
+  useEffect(() => {
+    if (cncLogRef.current) {
+      cncLogRef.current.scrollTop = cncLogRef.current.scrollHeight;
+    }
+  }, [cncActivityLog]);
+
+  useEffect(() => {
+    if (boxLogRef.current) {
+      boxLogRef.current.scrollTop = boxLogRef.current.scrollHeight;
+    }
+  }, [boxActivityLog]);
+
+  // ===== CNC Functions =====
+
+  const fetchCncStatus = async () => {
+    try {
+      const data = await getSerialStatus();
+      if (data) {
+        setCncStatus({
+          connected: data.connected || false,
+          port: data.port || null,
+          isDrawing: data.isDrawing || false,
+          position: data.position || { x: 0, y: 0, z: -2.3 },
+          lastCommand: data.lastCommand || null,
+        });
+      }
+    } catch (error) {
+      console.error("Error fetching CNC status:", error);
+    }
+  };
+
+  const fetchCncPorts = async () => {
+    try {
+      const data = await listSerialPorts();
+      if (data.success) {
+        setCncPorts(data.ports || []);
+      }
+    } catch (error) {
+      console.error("Error fetching CNC ports:", error);
+    }
+  };
+
+  const handleCncConnect = async () => {
+    setIsConnectingCnc(true);
+    const toastId = toast.loading(`Connecting to CNC on ${selectedCncPort}...`);
+
+    try {
+      const result = await connectSerial(selectedCncPort);
+      if (result.success) {
+        toast.success("Connected to CNC successfully", { id: toastId });
+        setShowCncPortSelector(false);
+        addCncLog("success", `Connected to ${selectedCncPort}`);
+        await fetchCncStatus();
+      } else {
+        throw new Error(result.error || "Connection failed");
+      }
+    } catch (error) {
+      toast.error(error.message || "Failed to connect to CNC", { id: toastId });
+      addCncLog("error", `Failed to connect: ${error.message}`);
+    } finally {
+      setIsConnectingCnc(false);
+    }
+  };
+
+  const handleCncDisconnect = async () => {
+    const toastId = toast.loading("Disconnecting from CNC...");
+
+    try {
+      const result = await disconnectSerial();
+      if (result.success) {
+        toast.success("Disconnected from CNC successfully", { id: toastId });
+        addCncLog("info", "Disconnected from CNC");
+        await fetchCncStatus();
+      } else {
+        throw new Error(result.error || "Disconnect failed");
+      }
+    } catch (error) {
+      toast.error(error.message || "Failed to disconnect from CNC", {
+        id: toastId,
+      });
+      addCncLog("error", `Failed to disconnect: ${error.message}`);
+    }
+  };
+
+  const handleSendCncCommand = async (e) => {
+    e?.preventDefault();
+    if (!cncCommand.trim()) return;
+
+    const cmd = cncCommand.trim();
+    addCncLog("command", `> ${cmd}`);
+
+    try {
+      const result = await sendSerialCommand(cmd);
+      if (result.success) {
+        addCncLog("response", result.response || "OK");
+        // Add to history
+        setCncCommandHistory((prev) => [cmd, ...prev].slice(0, 50));
+        setCncCommand("");
+        setHistoryIndex(-1);
+        toast.success("Command sent successfully");
+      } else {
+        throw new Error(result.error || "Command failed");
+      }
+    } catch (error) {
+      toast.error(error.message || "Failed to send command");
+      addCncLog("error", `Error: ${error.message}`);
+    }
+  };
+
+  const handleCncCommandKeyDown = (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSendCncCommand();
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      if (historyIndex < cncCommandHistory.length - 1) {
+        const newIndex = historyIndex + 1;
+        setHistoryIndex(newIndex);
+        setCncCommand(cncCommandHistory[newIndex]);
+      }
+    } else if (e.key === "ArrowDown") {
+      e.preventDefault();
+      if (historyIndex > 0) {
+        const newIndex = historyIndex - 1;
+        setHistoryIndex(newIndex);
+        setCncCommand(cncCommandHistory[newIndex]);
+      } else if (historyIndex === 0) {
+        setHistoryIndex(-1);
+        setCncCommand("");
+      }
+    }
+  };
+
+  const addCncLog = (type, message) => {
+    const logEntry = {
+      timestamp: new Date().toISOString(),
+      type, // 'command', 'response', 'error', 'success', 'info'
+      message,
+    };
+    setCncActivityLog((prev) => [...prev, logEntry].slice(-100));
+  };
+
+  // ===== Box Functions =====
+
   const fetchBoxStatus = async () => {
     try {
       const data = await getBoxStatus();
@@ -70,28 +231,68 @@ const StatusPage = () => {
     }
   };
 
-  const fetchSystemStatus = async () => {
-    try {
-      const response = await fetch(API_CONFIG.ENDPOINTS.SYSTEM_STATUS);
-      const data = await response.json();
-      setSystemLocked(data.locked);
-    } catch (error) {
-      console.error("Error fetching system status:", error);
-    }
-  };
-
-  const fetchAvailablePorts = async () => {
+  const fetchBoxPorts = async () => {
     try {
       const data = await listBoxPorts();
       if (data.success) {
-        setAvailablePorts(data.ports);
+        setBoxPorts(data.ports || []);
       }
     } catch (error) {
-      console.error("Error fetching ports:", error);
+      console.error("Error fetching Box ports:", error);
     }
   };
 
-  // Initialize Socket.IO connection
+  const handleBoxConnect = async () => {
+    setIsConnectingBox(true);
+    const toastId = toast.loading(`Connecting to Box on ${selectedBoxPort}...`);
+
+    try {
+      await connectBox(selectedBoxPort);
+      toast.success("Connected to Box successfully", { id: toastId });
+      setShowBoxPortSelector(false);
+    } catch (error) {
+      toast.error(error.message || "Failed to connect to Box", { id: toastId });
+    } finally {
+      setIsConnectingBox(false);
+    }
+  };
+
+  const handleBoxDisconnect = async () => {
+    const toastId = toast.loading("Disconnecting from Box...");
+
+    try {
+      await disconnectBox();
+      toast.success("Disconnected from Box successfully", { id: toastId });
+    } catch (error) {
+      toast.error(error.message || "Failed to disconnect from Box", {
+        id: toastId,
+      });
+    }
+  };
+
+  const handleSendBoxCommand = async (command) => {
+    const toastId = toast.loading(`Sending command: ${command}...`);
+
+    try {
+      await sendBoxCommand(command);
+      toast.success(`Command "${command}" sent successfully`, { id: toastId });
+    } catch (error) {
+      toast.error(error.message || `Failed to send command: ${command}`, {
+        id: toastId,
+      });
+    }
+  };
+
+  const handleSendCustomBoxCommand = async (e) => {
+    e?.preventDefault();
+    if (!boxCommand.trim()) return;
+
+    const cmd = boxCommand.trim();
+    await handleSendBoxCommand(cmd);
+    setBoxCommand("");
+  };
+
+  // ===== Initialize Socket.IO connection =====
   useEffect(() => {
     const newSocket = io(SOCKET_CONFIG.SERVER_URL);
     setSocket(newSocket);
@@ -130,91 +331,66 @@ const StatusPage = () => {
       toast.error(data.message);
     });
 
+    // CNC/Serial events (to be added in backend)
+    newSocket.on("serial:status", (data) => {
+      console.log("[STATUS] CNC status update:", data);
+      setCncStatus({
+        connected: data.connected || false,
+        port: data.port || null,
+        isDrawing: data.isDrawing || false,
+        position: data.position || { x: 0, y: 0, z: -2.3 },
+        lastCommand: data.lastCommand || null,
+      });
+    });
+
+    newSocket.on("serial:connected", (data) => {
+      console.log("[STATUS] CNC connected:", data);
+      toast.success(`Connected to CNC on ${data.port}`);
+      addCncLog("success", `Connected to ${data.port}`);
+    });
+
+    newSocket.on("serial:disconnected", () => {
+      console.log("[STATUS] CNC disconnected");
+      toast.info("CNC disconnected");
+      addCncLog("info", "Disconnected from CNC");
+    });
+
+    newSocket.on("serial:response", (data) => {
+      console.log("[STATUS] CNC response:", data);
+      addCncLog("response", data.message || data.response);
+    });
+
+    newSocket.on("serial:error", (data) => {
+      console.error("[STATUS] CNC error:", data);
+      toast.error(data.message);
+      addCncLog("error", data.message);
+    });
+
     // Cleanup
     return () => {
       newSocket.close();
     };
   }, []);
 
-  // Fetch initial data on mount
+  // ===== Polling for status updates =====
   useEffect(() => {
+    // Initial fetch
+    fetchCncStatus();
     fetchBoxStatus();
-    fetchSystemStatus();
-    fetchAvailablePorts();
+    fetchCncPorts();
+    fetchBoxPorts();
+
+    // Poll every 2 seconds
+    const interval = setInterval(() => {
+      fetchCncStatus();
+      fetchBoxStatus();
+    }, 2000);
+
+    return () => clearInterval(interval);
   }, []);
 
-  // Box connection handlers
-  const handleBoxConnect = async () => {
-    setIsConnecting(true);
-    const toastId = toast.loading(`Connecting to Box on ${selectedPort}...`);
+  // ===== Helper functions =====
 
-    try {
-      await connectBox(selectedPort);
-      toast.success("Connected to Box successfully", { id: toastId });
-      setShowPortSelector(false);
-    } catch (error) {
-      toast.error(error.message || "Failed to connect to Box", { id: toastId });
-    } finally {
-      setIsConnecting(false);
-    }
-  };
-
-  const handleBoxDisconnect = async () => {
-    const toastId = toast.loading("Disconnecting from Box...");
-
-    try {
-      await disconnectBox();
-      toast.success("Disconnected from Box successfully", { id: toastId });
-    } catch (error) {
-      toast.error(error.message || "Failed to disconnect from Box", {
-        id: toastId,
-      });
-    }
-  };
-
-  // Send command to Box
-  const handleSendCommand = async (command) => {
-    const toastId = toast.loading(`Sending command: ${command}...`);
-
-    try {
-      await sendBoxCommand(command);
-      toast.success(`Command "${command}" sent successfully`, { id: toastId });
-    } catch (error) {
-      toast.error(error.message || `Failed to send command: ${command}`, {
-        id: toastId,
-      });
-    }
-  };
-
-  // Lock/Unlock handlers
-  const handleLockSystem = async () => {
-    const toastId = toast.loading("Locking system...");
-
-    try {
-      const response = await fetch(API_CONFIG.ENDPOINTS.SYSTEM_LOCK, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        setSystemLocked(true);
-        toast.success("System locked successfully", { id: toastId });
-
-        // Send locked command to Box if connected
-        if (boxStatus.connected) {
-          await sendBoxCommand("locked");
-        }
-      } else {
-        toast.error("Failed to lock system", { id: toastId });
-      }
-    } catch (error) {
-      toast.error(error.message || "Failed to lock system", { id: toastId });
-    }
-  };
-
-  // Get status badge color
   const getStatusBadgeClass = (status) => {
     const statusLower = status?.toLowerCase() || "";
 
@@ -241,7 +417,6 @@ const StatusPage = () => {
     return "badge-info";
   };
 
-  // Get mode icon
   const getModeIcon = (mode) => {
     const modeLower = mode?.toLowerCase() || "";
 
@@ -260,49 +435,12 @@ const StatusPage = () => {
         {/* Header */}
         <div className="flex items-center gap-3 mb-8 pb-4 border-b-2 border-primary/20">
           <div className="w-1 h-8 bg-primary rounded-full"></div>
-          <h2 className="text-3xl font-bold">System Status</h2>
+          <h2 className="text-3xl font-bold">System Status & Connections</h2>
           <Activity className="w-6 h-6 text-primary ml-auto animate-pulse" />
         </div>
 
         {/* Status Overview Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-          {/* System Lock Status Card */}
-          <div className="bg-base-200 rounded-2xl p-6 shadow-xl border border-base-300">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold flex items-center gap-2">
-                <span className="text-base-content">System Lock</span>
-              </h3>
-              {systemLocked ? (
-                <Lock className="w-5 h-5 text-error" />
-              ) : (
-                <Unlock className="w-5 h-5 text-success" />
-              )}
-            </div>
-
-            <div className="space-y-3">
-              <div className="flex justify-between items-center">
-                <span className="text-base-content/70 text-sm">Status</span>
-                <span
-                  className={`badge ${
-                    systemLocked ? "badge-error" : "badge-success"
-                  } gap-2`}
-                >
-                  {systemLocked ? "🔒 Locked" : "🔓 Unlocked"}
-                </span>
-              </div>
-
-              {!systemLocked && (
-                <button
-                  onClick={handleLockSystem}
-                  className="btn btn-error btn-sm w-full gap-2"
-                >
-                  <Lock className="w-4 h-4" />
-                  Lock System
-                </button>
-              )}
-            </div>
-          </div>
-
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
           {/* CNC Status Card */}
           <div className="bg-base-200 rounded-2xl p-6 shadow-xl border border-base-300">
             <div className="flex items-center justify-between mb-4">
@@ -311,7 +449,7 @@ const StatusPage = () => {
                 CNC Controller
               </h3>
               {cncStatus.connected ? (
-                <Wifi className="w-5 h-5 text-success" />
+                <Wifi className="w-5 h-5 text-success animate-pulse" />
               ) : (
                 <WifiOff className="w-5 h-5 text-error" />
               )}
@@ -321,7 +459,7 @@ const StatusPage = () => {
               <div className="flex justify-between text-sm">
                 <span className="text-base-content/70">Port</span>
                 <span className="font-medium font-mono text-xs">
-                  {cncStatus.port}
+                  {cncStatus.port || "Not connected"}
                 </span>
               </div>
 
@@ -359,7 +497,7 @@ const StatusPage = () => {
           </div>
 
           {/* Box Status Card */}
-          <div className="bg-base-200 rounded-2xl p-6 shadow-xl border border-base-300 md:col-span-2 lg:col-span-1">
+          <div className="bg-base-200 rounded-2xl p-6 shadow-xl border border-base-300">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold flex items-center gap-2">
                 <BoxIcon className="w-5 h-5" />
@@ -412,266 +550,548 @@ const StatusPage = () => {
                   {getModeIcon(boxStatus.currentMode)} {boxStatus.currentMode}
                 </span>
               </div>
+            </div>
+          </div>
 
-              {boxStatus.lastMessage && (
-                <div className="flex justify-between text-sm">
-                  <span className="text-base-content/70">Last Message</span>
-                  <span className="font-mono text-xs">
-                    {boxStatus.lastMessage}
+          {/* System Lock Status Card */}
+          <div className="bg-base-200 rounded-2xl p-6 shadow-xl border border-base-300">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold flex items-center gap-2">
+                <span className="text-base-content">System Lock</span>
+              </h3>
+              {systemLocked ? (
+                <Lock className="w-5 h-5 text-error" />
+              ) : (
+                <Unlock className="w-5 h-5 text-success" />
+              )}
+            </div>
+
+            <div className="space-y-3">
+              <div className="flex justify-between items-center">
+                <span className="text-base-content/70 text-sm">Status</span>
+                <span
+                  className={`badge ${
+                    systemLocked ? "badge-error" : "badge-success"
+                  } gap-2`}
+                >
+                  {systemLocked ? "🔒 Locked" : "🔓 Unlocked"}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Main Connection Panels */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* ===== CNC CONNECTION PANEL ===== */}
+          <div className="space-y-6">
+            {/* CNC Connection Control */}
+            <div className="bg-base-200 rounded-2xl p-6 shadow-xl border border-base-300">
+              <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                <Power className="w-5 h-5" />
+                CNC Connection
+              </h3>
+
+              <div className="space-y-4">
+                {/* Port Selector */}
+                {!cncStatus.connected && (
+                  <div className="space-y-2">
+                    <label className="text-sm text-base-content/70">
+                      Serial Port
+                    </label>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={selectedCncPort}
+                        onChange={(e) => setSelectedCncPort(e.target.value)}
+                        className="input input-bordered flex-1 font-mono text-sm"
+                        placeholder="COM3"
+                      />
+                      <button
+                        onClick={() => {
+                          setShowCncPortSelector(!showCncPortSelector);
+                          if (!showCncPortSelector) fetchCncPorts();
+                        }}
+                        className="btn btn-ghost btn-sm"
+                        title="Show available ports"
+                      >
+                        <Terminal className="w-4 h-4" />
+                      </button>
+                    </div>
+
+                    {showCncPortSelector && (
+                      <div className="bg-base-300 rounded-lg p-3 space-y-2 max-h-40 overflow-auto">
+                        <p className="text-xs text-base-content/70 mb-2">
+                          Available ports:
+                        </p>
+                        {cncPorts.length > 0 ? (
+                          cncPorts.map((port) => (
+                            <button
+                              key={port.path}
+                              onClick={() => {
+                                setSelectedCncPort(port.path);
+                                setShowCncPortSelector(false);
+                              }}
+                              className="btn btn-ghost btn-xs w-full justify-start font-mono text-xs"
+                            >
+                              {port.path}
+                              {port.manufacturer && (
+                                <span className="text-base-content/50 ml-2">
+                                  ({port.manufacturer})
+                                </span>
+                              )}
+                            </button>
+                          ))
+                        ) : (
+                          <p className="text-xs text-base-content/50">
+                            No ports detected
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Connection Buttons */}
+                <div className="flex gap-2">
+                  {!cncStatus.connected ? (
+                    <button
+                      onClick={handleCncConnect}
+                      disabled={isConnectingCnc || !selectedCncPort}
+                      className="btn btn-primary flex-1 gap-2"
+                    >
+                      {isConnectingCnc ? (
+                        <>
+                          <RefreshCw className="w-4 h-4 animate-spin" />
+                          Connecting...
+                        </>
+                      ) : (
+                        <>
+                          <Wifi className="w-4 h-4" />
+                          Connect CNC
+                        </>
+                      )}
+                    </button>
+                  ) : (
+                    <button
+                      onClick={handleCncDisconnect}
+                      className="btn btn-error flex-1 gap-2"
+                    >
+                      <WifiOff className="w-4 h-4" />
+                      Disconnect CNC
+                    </button>
+                  )}
+
+                  <button
+                    onClick={fetchCncStatus}
+                    className="btn btn-ghost gap-2"
+                    title="Refresh status"
+                  >
+                    <RefreshCw className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {/* Baud Rate Info */}
+                <div className="text-xs text-base-content/50 flex items-center justify-between">
+                  <span>Baud Rate: 115200</span>
+                  {cncStatus.connected && (
+                    <span className="text-success">
+                      ● Persistent Connection
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* CNC Command Panel */}
+            <div className="bg-base-200 rounded-2xl p-6 shadow-xl border border-base-300">
+              <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                <Send className="w-5 h-5" />
+                CNC Commands
+              </h3>
+
+              <form onSubmit={handleSendCncCommand} className="space-y-3">
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={cncCommand}
+                    onChange={(e) => setCncCommand(e.target.value)}
+                    onKeyDown={handleCncCommandKeyDown}
+                    placeholder="Enter G-code command (e.g., G28)"
+                    className="input input-bordered flex-1 font-mono text-sm"
+                    disabled={!cncStatus.connected}
+                  />
+                  <button
+                    type="submit"
+                    disabled={!cncStatus.connected || !cncCommand.trim()}
+                    className="btn btn-primary gap-2"
+                  >
+                    <Send className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <div className="text-xs text-base-content/50">
+                  Press ↑/↓ for command history, Enter to send
+                </div>
+
+                {/* Quick Commands */}
+                <div className="grid grid-cols-3 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCncCommand("G28");
+                      handleSendCncCommand();
+                    }}
+                    disabled={!cncStatus.connected}
+                    className="btn btn-sm btn-ghost"
+                  >
+                    🏠 Home
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCncCommand("$H");
+                      handleSendCncCommand();
+                    }}
+                    disabled={!cncStatus.connected}
+                    className="btn btn-sm btn-ghost"
+                  >
+                    🎯 Homing
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCncCommand("?");
+                      handleSendCncCommand();
+                    }}
+                    disabled={!cncStatus.connected}
+                    className="btn btn-sm btn-ghost"
+                  >
+                    ❓ Status
+                  </button>
+                </div>
+              </form>
+
+              {!cncStatus.connected && (
+                <div className="alert alert-warning mt-4 py-2">
+                  <AlertCircle className="w-4 h-4" />
+                  <span className="text-xs">
+                    Connect to CNC to send commands
                   </span>
                 </div>
               )}
+            </div>
 
-              {boxStatus.error && (
-                <div className="alert alert-error py-2 mt-2">
-                  <AlertCircle className="w-4 h-4" />
-                  <span className="text-xs">{boxStatus.error}</span>
+            {/* CNC Activity Log */}
+            <div className="bg-base-200 rounded-2xl p-6 shadow-xl border border-base-300">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold flex items-center gap-2">
+                  <Terminal className="w-5 h-5" />
+                  CNC Activity Log
+                </h3>
+                <div className="flex gap-2 items-center">
+                  <span className="badge badge-ghost text-xs">
+                    {cncActivityLog.length} events
+                  </span>
+                  <button
+                    onClick={() => setCncActivityLog([])}
+                    className="btn btn-ghost btn-xs"
+                    title="Clear log"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                  </button>
                 </div>
-              )}
+              </div>
 
-              {boxStatus.reconnectAttempts > 0 && !boxStatus.connected && (
-                <div className="text-xs text-warning flex items-center gap-1 mt-2">
-                  <RefreshCw className="w-3 h-3 animate-spin" />
-                  Reconnect attempts: {boxStatus.reconnectAttempts}/10
-                </div>
-              )}
+              <div
+                ref={cncLogRef}
+                className="bg-base-300 rounded-lg p-4 max-h-96 overflow-auto font-mono text-xs space-y-1"
+              >
+                {cncActivityLog.length > 0 ? (
+                  cncActivityLog.map((log, index) => (
+                    <div
+                      key={index}
+                      className={`flex items-start gap-2 ${
+                        log.type === "error"
+                          ? "text-error"
+                          : log.type === "success"
+                          ? "text-success"
+                          : log.type === "command"
+                          ? "text-primary"
+                          : log.type === "response"
+                          ? "text-info"
+                          : "text-base-content"
+                      }`}
+                    >
+                      <span className="text-base-content/50 shrink-0 text-[10px]">
+                        {new Date(log.timestamp).toLocaleTimeString()}
+                      </span>
+                      <span className="break-all">{log.message}</span>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center text-base-content/50 py-8">
+                    No activity yet
+                  </div>
+                )}
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* Box Control Panel */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-          {/* Connection Control */}
-          <div className="bg-base-200 rounded-2xl p-6 shadow-xl border border-base-300">
-            <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-              <Power className="w-5 h-5" />
-              Box Connection
-            </h3>
+          {/* ===== BOX CONNECTION PANEL ===== */}
+          <div className="space-y-6">
+            {/* Box Connection Control */}
+            <div className="bg-base-200 rounded-2xl p-6 shadow-xl border border-base-300">
+              <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                <Power className="w-5 h-5" />
+                Box Connection
+              </h3>
 
-            <div className="space-y-4">
-              {/* Port Selector */}
-              {!boxStatus.connected && (
-                <div className="space-y-2">
-                  <label className="text-sm text-base-content/70">
-                    Serial Port
-                  </label>
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={selectedPort}
-                      onChange={(e) => setSelectedPort(e.target.value)}
-                      className="input input-bordered flex-1 font-mono text-sm"
-                      placeholder="/dev/ttyACM0"
-                    />
-                    <button
-                      onClick={() => setShowPortSelector(!showPortSelector)}
-                      className="btn btn-ghost btn-sm"
-                      title="Show available ports"
-                    >
-                      <Terminal className="w-4 h-4" />
-                    </button>
-                  </div>
-
-                  {showPortSelector && (
-                    <div className="bg-base-300 rounded-lg p-3 space-y-2 max-h-40 overflow-auto">
-                      <p className="text-xs text-base-content/70 mb-2">
-                        Available ports:
-                      </p>
-                      {availablePorts.length > 0 ? (
-                        availablePorts.map((port) => (
-                          <button
-                            key={port.path}
-                            onClick={() => {
-                              setSelectedPort(port.path);
-                              setShowPortSelector(false);
-                            }}
-                            className="btn btn-ghost btn-xs w-full justify-start font-mono text-xs"
-                          >
-                            {port.path}
-                            {port.manufacturer && (
-                              <span className="text-base-content/50 ml-2">
-                                ({port.manufacturer})
-                              </span>
-                            )}
-                          </button>
-                        ))
-                      ) : (
-                        <p className="text-xs text-base-content/50">
-                          No ports detected
-                        </p>
-                      )}
+              <div className="space-y-4">
+                {/* Port Selector */}
+                {!boxStatus.connected && (
+                  <div className="space-y-2">
+                    <label className="text-sm text-base-content/70">
+                      Serial Port
+                    </label>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={selectedBoxPort}
+                        onChange={(e) => setSelectedBoxPort(e.target.value)}
+                        className="input input-bordered flex-1 font-mono text-sm"
+                        placeholder="COM4"
+                      />
+                      <button
+                        onClick={() => {
+                          setShowBoxPortSelector(!showBoxPortSelector);
+                          if (!showBoxPortSelector) fetchBoxPorts();
+                        }}
+                        className="btn btn-ghost btn-sm"
+                        title="Show available ports"
+                      >
+                        <Terminal className="w-4 h-4" />
+                      </button>
                     </div>
-                  )}
-                </div>
-              )}
 
-              {/* Connection Buttons */}
-              <div className="flex gap-2">
-                {!boxStatus.connected ? (
-                  <button
-                    onClick={handleBoxConnect}
-                    disabled={isConnecting || !selectedPort}
-                    className="btn btn-primary flex-1 gap-2"
-                  >
-                    {isConnecting ? (
-                      <>
-                        <RefreshCw className="w-4 h-4 animate-spin" />
-                        Connecting...
-                      </>
-                    ) : (
-                      <>
-                        <Wifi className="w-4 h-4" />
-                        Connect
-                      </>
+                    {showBoxPortSelector && (
+                      <div className="bg-base-300 rounded-lg p-3 space-y-2 max-h-40 overflow-auto">
+                        <p className="text-xs text-base-content/70 mb-2">
+                          Available ports:
+                        </p>
+                        {boxPorts.length > 0 ? (
+                          boxPorts.map((port) => (
+                            <button
+                              key={port.path}
+                              onClick={() => {
+                                setSelectedBoxPort(port.path);
+                                setShowBoxPortSelector(false);
+                              }}
+                              className="btn btn-ghost btn-xs w-full justify-start font-mono text-xs"
+                            >
+                              {port.path}
+                              {port.manufacturer && (
+                                <span className="text-base-content/50 ml-2">
+                                  ({port.manufacturer})
+                                </span>
+                              )}
+                            </button>
+                          ))
+                        ) : (
+                          <p className="text-xs text-base-content/50">
+                            No ports detected
+                          </p>
+                        )}
+                      </div>
                     )}
-                  </button>
-                ) : (
-                  <button
-                    onClick={handleBoxDisconnect}
-                    className="btn btn-error flex-1 gap-2"
-                  >
-                    <WifiOff className="w-4 h-4" />
-                    Disconnect
-                  </button>
+                  </div>
                 )}
 
-                <button
-                  onClick={fetchBoxStatus}
-                  className="btn btn-ghost gap-2"
-                  title="Refresh status"
-                >
-                  <RefreshCw className="w-4 h-4" />
-                </button>
-
-                {boxStatus.error &&
-                  boxStatus.reconnectAttempts >= 10 &&
-                  !boxStatus.connected && (
+                {/* Connection Buttons */}
+                <div className="flex gap-2">
+                  {!boxStatus.connected ? (
                     <button
-                      onClick={() => handleBoxConnect()}
-                      className="btn btn-warning gap-2"
-                      title="Retry connection"
+                      onClick={handleBoxConnect}
+                      disabled={isConnectingBox || !selectedBoxPort}
+                      className="btn btn-primary flex-1 gap-2"
                     >
-                      <RefreshCw className="w-4 h-4" />
-                      Retry
+                      {isConnectingBox ? (
+                        <>
+                          <RefreshCw className="w-4 h-4 animate-spin" />
+                          Connecting...
+                        </>
+                      ) : (
+                        <>
+                          <Wifi className="w-4 h-4" />
+                          Connect Box
+                        </>
+                      )}
+                    </button>
+                  ) : (
+                    <button
+                      onClick={handleBoxDisconnect}
+                      className="btn btn-error flex-1 gap-2"
+                    >
+                      <WifiOff className="w-4 h-4" />
+                      Disconnect Box
                     </button>
                   )}
-              </div>
 
-              {/* Baud Rate Info */}
-              <div className="text-xs text-base-content/50 flex items-center gap-2">
-                <Clock className="w-3 h-3" />
-                Baud Rate: 9600 (Box Controller)
-              </div>
-            </div>
-          </div>
-
-          {/* Command Panel */}
-          <div className="bg-base-200 rounded-2xl p-6 shadow-xl border border-base-300">
-            <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-              <Send className="w-5 h-5" />
-              Box Commands
-            </h3>
-
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                onClick={() => handleSendCommand("writing")}
-                disabled={!boxStatus.connected}
-                className="btn btn-primary btn-sm gap-2"
-              >
-                ✍️ Writing Mode
-              </button>
-
-              <button
-                onClick={() => handleSendCommand("erasing")}
-                disabled={!boxStatus.connected}
-                className="btn btn-warning btn-sm gap-2"
-              >
-                🧹 Erasing Mode
-              </button>
-
-              <button
-                onClick={() => handleSendCommand("ready")}
-                disabled={!boxStatus.connected}
-                className="btn btn-info btn-sm gap-2"
-              >
-                ✅ Ready Check
-              </button>
-
-              <button
-                onClick={() => handleSendCommand("exiting")}
-                disabled={!boxStatus.connected}
-                className="btn btn-ghost btn-sm gap-2"
-              >
-                🚪 Logout
-              </button>
-
-              <button
-                onClick={() => handleSendCommand("locked")}
-                disabled={!boxStatus.connected}
-                className="btn btn-error btn-sm gap-2 col-span-2"
-              >
-                🔒 Force Lock
-              </button>
-            </div>
-
-            {!boxStatus.connected && (
-              <div className="alert alert-warning mt-4 py-2">
-                <AlertCircle className="w-4 h-4" />
-                <span className="text-xs">Connect to Box to send commands</span>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Activity Log */}
-        <div className="bg-base-200 rounded-2xl p-6 shadow-xl border border-base-300">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold flex items-center gap-2">
-              <Monitor className="w-5 h-5" />
-              Box Activity Log
-            </h3>
-            <span className="badge badge-ghost">
-              {boxActivityLog.length} events
-            </span>
-          </div>
-
-          <div className="bg-base-300 rounded-lg p-4 max-h-96 overflow-auto font-mono text-xs">
-            {boxActivityLog.length > 0 ? (
-              <div className="space-y-2">
-                {boxActivityLog.map((activity, index) => (
-                  <div
-                    key={index}
-                    className={`flex items-start gap-2 p-2 rounded ${
-                      activity.type === "error"
-                        ? "bg-error/10 text-error"
-                        : activity.type === "success"
-                        ? "bg-success/10 text-success"
-                        : activity.type === "command"
-                        ? "bg-primary/10 text-primary"
-                        : "bg-base-100"
-                    }`}
+                  <button
+                    onClick={fetchBoxStatus}
+                    className="btn btn-ghost gap-2"
+                    title="Refresh status"
                   >
-                    <span className="text-base-content/50 shrink-0">
-                      {new Date(activity.timestamp).toLocaleTimeString()}
+                    <RefreshCw className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {/* Baud Rate Info */}
+                <div className="text-xs text-base-content/50 flex items-center justify-between">
+                  <span>Baud Rate: 9600</span>
+                  {boxStatus.connected && (
+                    <span className="text-success">
+                      ● Persistent Connection
                     </span>
-                    <span className="shrink-0">
-                      {activity.type === "error"
-                        ? "❌"
-                        : activity.type === "success"
-                        ? "✅"
-                        : activity.type === "command"
-                        ? "📤"
-                        : "ℹ️"}
-                    </span>
-                    <span className="break-all">{activity.message}</span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Box Command Panel */}
+            <div className="bg-base-200 rounded-2xl p-6 shadow-xl border border-base-300">
+              <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                <Send className="w-5 h-5" />
+                Box Commands
+              </h3>
+
+              {/* Preset Commands */}
+              <div className="grid grid-cols-2 gap-3 mb-4">
+                <button
+                  onClick={() => handleSendBoxCommand("writing")}
+                  disabled={!boxStatus.connected}
+                  className="btn btn-primary btn-sm gap-2"
+                >
+                  ✍️ Writing
+                </button>
+
+                <button
+                  onClick={() => handleSendBoxCommand("erasing")}
+                  disabled={!boxStatus.connected}
+                  className="btn btn-warning btn-sm gap-2"
+                >
+                  🧹 Erasing
+                </button>
+
+                <button
+                  onClick={() => handleSendBoxCommand("ready")}
+                  disabled={!boxStatus.connected}
+                  className="btn btn-info btn-sm gap-2"
+                >
+                  ✅ Ready
+                </button>
+
+                <button
+                  onClick={() => handleSendBoxCommand("exiting")}
+                  disabled={!boxStatus.connected}
+                  className="btn btn-ghost btn-sm gap-2"
+                >
+                  🚪 Logout
+                </button>
+              </div>
+
+              {/* Custom Command Input */}
+              <form onSubmit={handleSendCustomBoxCommand} className="space-y-3">
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={boxCommand}
+                    onChange={(e) => setBoxCommand(e.target.value)}
+                    placeholder="Enter custom command"
+                    className="input input-bordered flex-1 font-mono text-sm"
+                    disabled={!boxStatus.connected}
+                  />
+                  <button
+                    type="submit"
+                    disabled={!boxStatus.connected || !boxCommand.trim()}
+                    className="btn btn-primary gap-2"
+                  >
+                    <Send className="w-4 h-4" />
+                  </button>
+                </div>
+              </form>
+
+              {!boxStatus.connected && (
+                <div className="alert alert-warning mt-4 py-2">
+                  <AlertCircle className="w-4 h-4" />
+                  <span className="text-xs">
+                    Connect to Box to send commands
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Box Activity Log */}
+            <div className="bg-base-200 rounded-2xl p-6 shadow-xl border border-base-300">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold flex items-center gap-2">
+                  <Terminal className="w-5 h-5" />
+                  Box Activity Log
+                </h3>
+                <div className="flex gap-2 items-center">
+                  <span className="badge badge-ghost text-xs">
+                    {boxActivityLog.length} events
+                  </span>
+                  <button
+                    onClick={() => setBoxActivityLog([])}
+                    className="btn btn-ghost btn-xs"
+                    title="Clear log"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                  </button>
+                </div>
+              </div>
+
+              <div
+                ref={boxLogRef}
+                className="bg-base-300 rounded-lg p-4 max-h-96 overflow-auto font-mono text-xs space-y-1"
+              >
+                {boxActivityLog.length > 0 ? (
+                  boxActivityLog.map((activity, index) => (
+                    <div
+                      key={index}
+                      className={`flex items-start gap-2 ${
+                        activity.type === "error"
+                          ? "text-error"
+                          : activity.type === "success"
+                          ? "text-success"
+                          : activity.type === "command"
+                          ? "text-primary"
+                          : "text-base-content"
+                      }`}
+                    >
+                      <span className="text-base-content/50 shrink-0 text-[10px]">
+                        {new Date(activity.timestamp).toLocaleTimeString()}
+                      </span>
+                      <span>
+                        {activity.type === "error"
+                          ? "❌"
+                          : activity.type === "success"
+                          ? "✅"
+                          : activity.type === "command"
+                          ? "📤"
+                          : "📥"}{" "}
+                        {activity.message}
+                      </span>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center text-base-content/50 py-8">
+                    No activity yet
                   </div>
-                ))}
+                )}
               </div>
-            ) : (
-              <div className="text-center text-base-content/50 py-8">
-                No activity yet. Connect to Box to see events.
-              </div>
-            )}
+            </div>
           </div>
         </div>
       </div>

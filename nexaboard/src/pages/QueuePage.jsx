@@ -4,7 +4,6 @@ import { toast } from "sonner";
 import { io } from "socket.io-client";
 import QueueList from "../components/queue/QueueList";
 import QueueControls from "../components/queue/QueueControls";
-import ManualControl from "../components/queue/ManualControl";
 import RecoveryButton from "../components/RecoveryButton";
 import SerialLogModal from "../components/SerialLogModal";
 import { SOCKET_CONFIG, SERIAL_CONFIG } from "../config/api.config.js";
@@ -269,12 +268,16 @@ const QueuePage = () => {
         <div className="mb-6">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-base-content mb-1">Queue</h1>
+              <h1 className="text-3xl font-bold text-base-content mb-1">
+                Queue
+              </h1>
               <p className="text-sm text-base-content/50">
-                {items.length === 0 ? "No items" : `${items.length} ${items.length === 1 ? "item" : "items"}`}
+                {items.length === 0
+                  ? "No items"
+                  : `${items.length} ${items.length === 1 ? "item" : "items"}`}
               </p>
             </div>
-            
+
             {/* Action Buttons */}
             {items.length > 0 && (
               <div className="flex gap-2">
@@ -283,7 +286,18 @@ const QueuePage = () => {
                   disabled={stats.pending === 0 || isProcessing}
                   className="btn btn-primary gap-2"
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="w-5 h-5"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <polygon points="5 3 19 12 5 21 5 3" />
+                  </svg>
                   Draw Next
                 </button>
                 <button
@@ -291,7 +305,19 @@ const QueuePage = () => {
                   disabled={isProcessing}
                   className="btn btn-ghost gap-2"
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="w-5 h-5"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <polyline points="3 6 5 6 21 6" />
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                  </svg>
                   Clear All
                 </button>
               </div>
@@ -327,10 +353,22 @@ const QueuePage = () => {
             )}
           </div>
 
-          {/* Manual Control - Takes 4 columns */}
+          {/* Recovery Button - Right sidebar */}
           <div className="lg:col-span-4 space-y-4">
             <RecoveryButton />
-            <ManualControl />
+
+            {/* Info Card */}
+            <div className="bg-base-200 rounded-2xl p-6 shadow-xl border border-base-300">
+              <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
+                <Package className="w-5 h-5" />
+                Connection Info
+              </h3>
+              <p className="text-sm text-base-content/70">
+                CNC and Box connections are now managed in the{" "}
+                <strong>Status</strong> page. Go to Status to establish
+                persistent connections before drawing.
+              </p>
+            </div>
           </div>
         </div>
       </div>

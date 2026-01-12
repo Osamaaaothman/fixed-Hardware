@@ -10,18 +10,37 @@ let isConnected = false;
 let persistentPort = null; // For manual control persistent connection
 let persistentParser = null;
 let persistentConnected = false;
+let lastCommand = null; // Track last command sent
 
 // Track last successful position before disconnect
 let lastKnownPosition = { x: 0, y: 0, z: -2.3 }; // Start at home with pen up
 let isDrawing = false;
 let lastSuccessfulLine = 0;
 
+// Helper function to emit Socket.IO events
+let io = null;
+const emitSerialEvent = (event, data) => {
+  if (io) {
+    io.emit(`serial:${event}`, data);
+  }
+};
+
+// Middleware to capture io instance
+router.use((req, res, next) => {
+  if (!io && req.app.get("io")) {
+    io = req.app.get("io");
+    console.log("[SERIAL] Socket.IO instance captured");
+  }
+  next();
+});
+
 /**
  * POST /api/serial/send
  * Send G-code to Arduino via serial with real-time updates using SSE
+ * Prefers persistent connection if available, falls back to temporary connection
  */
 router.post("/send", async (req, res) => {
-  const { gcode, port = "/dev/ttyUSB0", baudRate = 115200 } = req.body;
+  const { gcode, port = "/dev/ttyUSB0", baudRate = 115200, usePersistent = true } = req.body;
 
   if (!gcode) {
     return res.status(400).json({ error: "No G-code provided" });
@@ -38,9 +57,38 @@ router.post("/send", async (req, res) => {
   };
 
   try {
-    // Close existing connection if any
+    // PREFER PERSISTENT CONNECTION IF AVAILABLE
+    if (usePersistent && persistentPort && persistentPort.isOpen && persistentConnected) {
+      console.log("[SERIAL] Using persistent connection for G-code transmission");
+      const startTime = Date.now();
+      
+      sendEvent("status", {
+        message: "Using persistent connection",
+        timestamp: Date.now() - startTime,
+      });
+      
+      isDrawing = true;
+      
+      // Emit Socket.IO event
+      emitSerialEvent("status", {
+        connected: true,
+        port: persistentPort.path,
+        isDrawing: true,
+        position: lastKnownPosition,
+        lastCommand: "Drawing...",
+      });
+      
+      // Use persistent connection
+      sendGcodeLinesSSE(gcode, persistentPort, persistentParser, startTime, res, sendEvent);
+      return; // Exit early
+    }
+    
+    // FALLBACK TO TEMPORARY CONNECTION
+    console.log("[SERIAL] No persistent connection available, creating temporary connection");
+    
+    // Close existing temporary connection if any
     if (activePort && activePort.isOpen) {
-      console.log("Closing existing port connection...");
+      console.log("Closing existing temporary port connection...");
       await new Promise((resolve) => {
         activePort.close((err) => {
           if (err) console.error("Error closing port:", err);
@@ -237,11 +285,22 @@ function sendGcodeLinesSSE(gcode, port, parser, startTime, res, sendEvent) {
       const totalTime = ((endTime - startTime) / 1000).toFixed(2);
 
       console.log(`G-code transmission complete in ${totalTime} seconds`);
+      
+      isDrawing = false;
 
       sendEvent("complete", {
         totalLines: lines.length,
         totalTime: totalTime + " seconds",
         timestamp: endTime - startTime,
+      });
+      
+      // Emit Socket.IO event
+      emitSerialEvent("status", {
+        connected: persistentPort ? persistentConnected : false,
+        port: persistentPort ? persistentPort.path : null,
+        isDrawing: false,
+        position: lastKnownPosition,
+        lastCommand: "Drawing complete",
       });
 
       // Clear any pending timeout
@@ -249,10 +308,13 @@ function sendGcodeLinesSSE(gcode, port, parser, startTime, res, sendEvent) {
         clearTimeout(responseTimeout);
       }
 
-      // Close port after completion
+      // Close port after completion ONLY if using temporary connection
       setTimeout(() => {
-        if (port && port.isOpen) {
+        if (port && port.isOpen && port !== persistentPort) {
+          console.log("[SERIAL] Closing temporary connection after drawing");
           port.close();
+        } else if (port === persistentPort) {
+          console.log("[SERIAL] Keeping persistent connection open");
         }
         res.end();
       }, 1000);
@@ -379,6 +441,9 @@ router.get("/status", (req, res) => {
     connected: persistentConnected || isConnected,
     port: persistentPort ? persistentPort.path : (activePort ? activePort.path : null),
     isOpen: persistentPort ? persistentPort.isOpen : (activePort ? activePort.isOpen : false),
+    isDrawing: isDrawing,
+    position: lastKnownPosition,
+    lastCommand: lastCommand,
   });
 });
 
@@ -447,6 +512,16 @@ router.post("/connect", async (req, res) => {
     // Wait for GRBL to initialize
     await new Promise((resolve) => setTimeout(resolve, 2500));
 
+    // Emit Socket.IO event
+    emitSerialEvent("connected", { port, connected: true });
+    emitSerialEvent("status", {
+      connected: true,
+      port: port,
+      isDrawing: false,
+      position: lastKnownPosition,
+      lastCommand: null,
+    });
+
     res.json({
       success: true,
       message: "Persistent connection established",
@@ -455,6 +530,10 @@ router.post("/connect", async (req, res) => {
   } catch (error) {
     console.error("Error opening persistent connection:", error);
     persistentConnected = false;
+    
+    // Emit Socket.IO error event
+    emitSerialEvent("error", { message: error.message });
+    
     res.status(500).json({
       success: false,
       error: error.message || "Failed to open persistent connection",
@@ -479,6 +558,16 @@ router.post("/disconnect", async (req, res) => {
       persistentParser = null;
       persistentConnected = false;
       
+      // Emit Socket.IO event
+      emitSerialEvent("disconnected", {});
+      emitSerialEvent("status", {
+        connected: false,
+        port: null,
+        isDrawing: false,
+        position: lastKnownPosition,
+        lastCommand: null,
+      });
+      
       res.json({
         success: true,
         message: "Persistent connection closed",
@@ -491,6 +580,10 @@ router.post("/disconnect", async (req, res) => {
     }
   } catch (error) {
     console.error("Error closing persistent connection:", error);
+    
+    // Emit Socket.IO error event
+    emitSerialEvent("error", { message: error.message });
+    
     res.status(500).json({
       success: false,
       error: error.message || "Failed to close connection",
@@ -557,7 +650,15 @@ router.post("/command", async (req, res) => {
       persistentParser.off("data", dataHandler);
 
       const arduinoResponse = responses.join(" ");
-
+      
+      // Store last command
+      lastCommand = command;
+      
+      // Emit Socket.IO event
+      emitSerialEvent(\"response\", { 
+        command, 
+        response: arduinoResponse || \"ok\" 
+      });\n
       return res.json({
         success: true,
         message: `Command sent: ${command}`,
