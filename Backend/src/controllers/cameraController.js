@@ -32,7 +32,9 @@ const ESP32_CAPTURE_URL = "http://192.168.1.11/capture";
  */
 function readCapturesData() {
   try {
+    console.log("osama35")
     const data = fs.readFileSync(capturesDataFile, "utf8");
+    console.log("osama37")
     return JSON.parse(data);
   } catch (error) {
     console.error("Error reading captures data:", error);
@@ -147,6 +149,8 @@ router.post("/capture", async (req, res) => {
 router.get("/captures", (req, res) => {
   try {
     const data = readCapturesData();
+    console.log("osama152")
+
     res.json({ captures: data.captures || [] });
   } catch (error) {
     console.error("Get captures error:", error);
