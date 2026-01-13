@@ -41,24 +41,32 @@ function fabricPathsToPoints(fabricPaths, canvasSize) {
   const actualMinY = Math.min(...yCoords);
   const actualMaxX = Math.max(...xCoords);
   const actualMaxY = Math.max(...yCoords);
-  const actualWidth = actualMaxX - actualMinX;
-  const actualHeight = actualMaxY - actualMinY;
 
-  // Calculate scaling factor to fit CNC area while maintaining aspect ratio
-  const scaleX = CNC_WIDTH / actualWidth;
-  const scaleY = CNC_HEIGHT / actualHeight;
+  // FIXED: Scale based on canvas size, not drawing bounding box
+  // This ensures small drawings stay small on the CNC
+  const scaleX = CNC_WIDTH / canvasSize.width;
+  const scaleY = CNC_HEIGHT / canvasSize.height;
   const scale = Math.min(scaleX, scaleY);
+
+  console.log(
+    `[canvasToPoints] Canvas: ${canvasSize.width}x${
+      canvasSize.height
+    }, Scale: ${scale.toFixed(4)}`
+  );
+  console.log(
+    `[canvasToPoints] Drawing bounds: (${actualMinX},${actualMinY}) to (${actualMaxX},${actualMaxY})`
+  );
 
   // Scale and translate all paths to fit within CNC bounds
   const scaledPaths = [];
   for (const path of allPaths) {
     const scaledPath = path.map((point) => ({
       x: Math.min(
-        Math.max(Math.round((point.x - actualMinX) * scale * 100) / 100, 0),
+        Math.max(Math.round(point.x * scale * 100) / 100, 0),
         CNC_WIDTH
       ),
       y: Math.min(
-        Math.max(Math.round((point.y - actualMinY) * scale * 100) / 100, 0),
+        Math.max(Math.round(point.y * scale * 100) / 100, 0),
         CNC_HEIGHT
       ),
     }));
