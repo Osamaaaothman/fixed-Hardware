@@ -286,11 +286,11 @@ const parseBoxMessage = (message, io) => {
               const CNC_HEIGHT = 130;
               const PEN_UP = -2.3;
               const PEN_DOWN = 0;
-              const FEED_RATE = 3000;
+              const FEED_RATE = 6000;
               const X_POSITION = CNC_WIDTH - 4;
               const Y_START = 0;
               const Y_END = CNC_HEIGHT - 20;
-              const Y_STEP = 2;
+              const Y_STEP = 5;
 
               const gcode = [];
               gcode.push("G21");

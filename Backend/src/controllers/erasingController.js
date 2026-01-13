@@ -7,18 +7,18 @@ const CNC_WIDTH = 95; // mm
 const CNC_HEIGHT = 130; // mm
 const PEN_UP = -2.3;
 const PEN_DOWN = 0;
-const FEED_RATE = 3000; // Fast movement for erasing
+const FEED_RATE = 6000; // Fast movement for erasing
 
 /**
  * Generate G-code for erasing the entire board
  * Sweeps vertically at X position to clear the board
- * Pattern: X=91mm (max-4), Y=0 to Y=110mm (max-20) in 2mm steps
+ * Pattern: X=91mm (max-4), Y=0 to Y=110mm (max-20) in 5mm steps
  */
 function generateEraseGcode() {
   const X_POSITION = CNC_WIDTH - 4; // 91mm
   const Y_START = 0;
   const Y_END = CNC_HEIGHT - 20; // 110mm
-  const Y_STEP = 2; // Move 2mm each step
+  const Y_STEP = 5; // Move 5mm each step
 
   const gcode = [];
 
