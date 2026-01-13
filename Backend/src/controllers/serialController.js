@@ -69,6 +69,15 @@ router.post("/send", async (req, res) => {
     return res.status(400).json({ error: "No G-code provided" });
   }
 
+  // CRITICAL: Prevent multiple simultaneous draws
+  if (isDrawing) {
+    console.log("[SERIAL] Rejecting draw request - already drawing");
+    return res.status(409).json({
+      error:
+        "A drawing operation is already in progress. Please wait for it to complete.",
+    });
+  }
+
   // Set headers for Server-Sent Events
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
@@ -250,8 +259,11 @@ function sendGcodeLinesSSE(gcode, port, parser, startTime, res, sendEvent) {
   let transmissionStarted = false; // Track if we've started sending G-code
   let consecutiveTimeouts = 0; // Track consecutive timeouts
   const MAX_CONSECUTIVE_TIMEOUTS = 5; // Stop after 5 consecutive timeouts
+  let isCancelled = false; // Track if transmission was cancelled
 
   parser.on("data", (data) => {
+    if (isCancelled) return; // Ignore responses after cancellation
+
     const response = data.trim();
 
     // Detect corrupted data (contains non-printable characters or excessive special chars)
@@ -334,6 +346,8 @@ function sendGcodeLinesSSE(gcode, port, parser, startTime, res, sendEvent) {
   });
 
   function sendNextLine() {
+    if (isCancelled) return; // Stop if cancelled
+
     if (currentLine >= lines.length) {
       // All lines sent
       const endTime = Date.now();
@@ -361,6 +375,7 @@ function sendGcodeLinesSSE(gcode, port, parser, startTime, res, sendEvent) {
       // Clear any pending timeout
       if (responseTimeout) {
         clearTimeout(responseTimeout);
+        responseTimeout = null;
       }
 
       // Close port after completion ONLY if using temporary connection
@@ -406,6 +421,8 @@ function sendGcodeLinesSSE(gcode, port, parser, startTime, res, sendEvent) {
       port.write(line + "\n", (err) => {
         if (err) {
           console.error("Error writing to serial port:", err);
+          isCancelled = true;
+          isDrawing = false;
           sendEvent("error", {
             message: err.message,
             timestamp: Date.now() - startTime,
@@ -426,6 +443,8 @@ function sendGcodeLinesSSE(gcode, port, parser, startTime, res, sendEvent) {
 
       // Set timeout for this command
       responseTimeout = setTimeout(() => {
+        if (isCancelled) return; // Don't continue if cancelled
+
         consecutiveTimeouts++;
         console.error(
           `⚠️ Timeout ${consecutiveTimeouts}/${MAX_CONSECUTIVE_TIMEOUTS} waiting for response to line ${currentLine}`
@@ -433,6 +452,8 @@ function sendGcodeLinesSSE(gcode, port, parser, startTime, res, sendEvent) {
 
         if (consecutiveTimeouts >= MAX_CONSECUTIVE_TIMEOUTS) {
           // Too many timeouts, likely Arduino is dead
+          isCancelled = true;
+          isDrawing = false;
           sendEvent("error", {
             message: `Critical: ${MAX_CONSECUTIVE_TIMEOUTS} consecutive timeouts - Arduino may be frozen. Check hardware!`,
             timestamp: Date.now() - startTime,

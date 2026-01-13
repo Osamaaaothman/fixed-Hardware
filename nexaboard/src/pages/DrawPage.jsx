@@ -211,6 +211,15 @@ const DrawPage = () => {
   const handleDrawNow = async () => {
     if (!gcode) return;
 
+    // Prevent multiple simultaneous draws
+    if (isGenerating) {
+      console.log("[DrawPage] Already drawing, ignoring duplicate click");
+      return;
+    }
+
+    setIsGenerating(true);
+    setError("");
+
     try {
       const response = await fetch(`${API_CONFIG.ENDPOINTS.SERIAL}/send`, {
         method: "POST",
@@ -226,11 +235,14 @@ const DrawPage = () => {
         throw new Error("Failed to send G-code");
       }
 
-      console.log("[DrawPage] Drawing now...");
+      console.log("[DrawPage] Drawing started...");
       setIsModalOpen(false);
     } catch (err) {
       console.error("[DrawPage] Error sending G-code:", err);
       setError("Failed to start drawing: " + err.message);
+    } finally {
+      // Reset the flag after a delay to prevent rapid clicks
+      setTimeout(() => setIsGenerating(false), 3000);
     }
   };
 
