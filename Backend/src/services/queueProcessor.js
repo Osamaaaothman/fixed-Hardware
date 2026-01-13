@@ -7,6 +7,31 @@ let isProcessing = false;
 let currentProcessingItem = null;
 
 /**
+ * Send command to Box via serial port
+ * @param {Object} boxPort - Box serial port instance
+ * @param {string} command - Command to send
+ * @returns {Promise<boolean>} Success status
+ */
+function sendBoxCommand(boxPort, command) {
+  return new Promise((resolve, reject) => {
+    if (!boxPort || !boxPort.isOpen) {
+      reject(new Error("Box port not connected"));
+      return;
+    }
+
+    boxPort.write(`${command}\n`, (err) => {
+      if (err) {
+        console.error(`[QUEUE] Error sending box command "${command}":`, err);
+        reject(err);
+      } else {
+        console.log(`[QUEUE] Box command sent: ${command}`);
+        resolve(true);
+      }
+    });
+  });
+}
+
+/**
  * Send a single line of G-code and wait for "ok" response
  */
 function sendLine(line, parser, serialPort) {
@@ -39,10 +64,23 @@ function sendLine(line, parser, serialPort) {
  * @param {Object} io - Socket.IO instance for real-time updates
  * @param {string} port - Serial port (default: COM4)
  * @param {number} baudRate - Baud rate (default: 115200)
+ * @param {Object} persistentPort - Persistent CNC serial port (optional)
+ * @param {Object} persistentParser - Persistent CNC parser (optional)
+ * @param {Object} boxPort - Box serial port (optional)
  */
-async function processQueueItem(item, io, port = "COM4", baudRate = 115200) {
+async function processQueueItem(
+  item,
+  io,
+  port = "COM4",
+  baudRate = 115200,
+  persistentPort = null,
+  persistentParser = null,
+  boxPort = null
+) {
   let serialPort = null;
   let parser = null;
+  let usingPersistent = false;
+  let boxModeChanged = false;
 
   try {
     // Update item status to processing
@@ -60,19 +98,55 @@ async function processQueueItem(item, io, port = "COM4", baudRate = 115200) {
       });
     }
 
-    // Open serial port
-    serialPort = new SerialPort({
-      path: port,
-      baudRate: baudRate,
-      dataBits: 8,
-      parity: "none",
-      stopBits: 1,
-    });
+    // Use persistent connection if available, otherwise create temporary
+    if (persistentPort && persistentPort.isOpen && persistentParser) {
+      console.log("[QUEUE] Using persistent CNC connection");
+      serialPort = persistentPort;
+      parser = persistentParser;
+      usingPersistent = true;
+    } else {
+      console.log("[QUEUE] Creating temporary CNC connection");
+      // Open serial port
+      serialPort = new SerialPort({
+        path: port,
+        baudRate: baudRate,
+        dataBits: 8,
+        parity: "none",
+        stopBits: 1,
+      });
 
-    parser = serialPort.pipe(new ReadlineParser({ delimiter: "\n" }));
+      parser = serialPort.pipe(new ReadlineParser({ delimiter: "\n" }));
 
-    // Wait for Arduino to initialize
-    await new Promise((resolve) => setTimeout(resolve, 2000));
+      // Wait for Arduino to initialize
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+    }
+
+    // Send Box to writing mode before starting G-code transmission
+    if (boxPort && boxPort.isOpen) {
+      try {
+        await sendBoxCommand(boxPort, "writing");
+        boxModeChanged = true;
+        console.log("[QUEUE] Box entered writing mode");
+
+        // Emit socket event
+        if (io) {
+          io.emit("box:mode-changed", {
+            mode: "WRITING",
+            reason: "queue-drawing",
+            timestamp: Date.now(),
+          });
+        }
+
+        // Wait for Box to switch modes
+        await new Promise((resolve) => setTimeout(resolve, 500));
+      } catch (boxError) {
+        console.error(
+          "[QUEUE] Warning: Failed to set Box to writing mode:",
+          boxError
+        );
+        // Continue anyway - Box mode is optional
+      }
+    }
 
     // Parse G-code lines
     const lines = item.gcode.split("\n").filter((line) => {
@@ -86,8 +160,8 @@ async function processQueueItem(item, io, port = "COM4", baudRate = 115200) {
       await sendLine(line, parser, serialPort);
       item.currentLine = i + 1;
 
-      // Emit progress update every 10 lines or on last line
-      if (i % 10 === 0 || i === lines.length - 1) {
+      // Emit progress update every 5 lines or on last line (more frequent updates)
+      if (i % 5 === 0 || i === lines.length - 1) {
         if (io) {
           io.emit("queue:processing", {
             itemId: item.id,
@@ -96,6 +170,7 @@ async function processQueueItem(item, io, port = "COM4", baudRate = 115200) {
             total: lines.length,
             progress: Math.round(((i + 1) / lines.length) * 100),
             timestamp: Date.now(),
+            currentLine: line.substring(0, 50), // First 50 chars of current line
           });
         }
       }
@@ -106,9 +181,33 @@ async function processQueueItem(item, io, port = "COM4", baudRate = 115200) {
     item.processingEndTime = Date.now();
     item.completedAt = new Date().toISOString();
 
-    // Close serial port
-    if (serialPort && serialPort.isOpen) {
+    // Return Box to ready/menu mode after drawing
+    if (boxPort && boxPort.isOpen && boxModeChanged) {
+      try {
+        await sendBoxCommand(boxPort, "ready");
+        console.log("[QUEUE] Box returned to ready mode");
+
+        // Emit socket event
+        if (io) {
+          io.emit("box:mode-changed", {
+            mode: "READY",
+            reason: "queue-completed",
+            timestamp: Date.now(),
+          });
+        }
+      } catch (boxError) {
+        console.error(
+          "[QUEUE] Warning: Failed to return Box to ready mode:",
+          boxError
+        );
+        // Continue anyway
+      }
+    }
+
+    // Close serial port only if not using persistent connection
+    if (serialPort && serialPort.isOpen && !usingPersistent) {
       serialPort.close();
+      console.log("[QUEUE] Temporary CNC connection closed");
     }
 
     // Emit completion event
@@ -123,10 +222,10 @@ async function processQueueItem(item, io, port = "COM4", baudRate = 115200) {
       });
     }
 
-    console.log(`Queue item ${item.id} completed successfully`);
+    console.log(`[QUEUE] Item ${item.id} completed successfully`);
     return { success: true, item };
   } catch (error) {
-    console.error(`Error processing queue item ${item.id}:`, error);
+    console.error(`[QUEUE] Error processing queue item ${item.id}:`, error);
 
     // Mark as failed
     item.status = "failed";
@@ -134,9 +233,20 @@ async function processQueueItem(item, io, port = "COM4", baudRate = 115200) {
     item.processingEndTime = Date.now();
     await saveQueue(nexaboard.queue.getAll());
 
-    // Close serial port
-    if (serialPort && serialPort.isOpen) {
+    // Return Box to ready mode on error
+    if (boxPort && boxPort.isOpen && boxModeChanged) {
+      try {
+        await sendBoxCommand(boxPort, "ready");
+        console.log("[QUEUE] Box returned to ready mode after error");
+      } catch (boxError) {
+        console.error("[QUEUE] Failed to return Box to ready mode:", boxError);
+      }
+    }
+
+    // Close serial port only if not using persistent connection
+    if (serialPort && serialPort.isOpen && !usingPersistent) {
       serialPort.close();
+      console.log("[QUEUE] Temporary CNC connection closed after error");
     }
 
     // Emit error event
@@ -158,11 +268,20 @@ async function processQueueItem(item, io, port = "COM4", baudRate = 115200) {
  * Start processing the queue
  * Processes items one by one from the front of the queue
  * Deletes completed items, keeps failed items for retry
+ * @param {Object} io - Socket.IO instance
+ * @param {string} port - Serial port for CNC
+ * @param {number} baudRate - Baud rate for CNC
+ * @param {Object} persistentPort - Persistent CNC connection (optional)
+ * @param {Object} persistentParser - Persistent CNC parser (optional)
+ * @param {Object} boxPort - Box serial port (optional)
  */
 export async function startQueueProcessing(
   io,
   port = "COM4",
-  baudRate = 115200
+  baudRate = 115200,
+  persistentPort = null,
+  persistentParser = null,
+  boxPort = null
 ) {
   if (isProcessing) {
     return { success: false, message: "Queue is already being processed" };
@@ -183,14 +302,22 @@ export async function startQueueProcessing(
       const nextItem = items.find((item) => item.status === "pending");
 
       if (!nextItem) {
-        console.log("No more pending items in queue");
+        console.log("[QUEUE] No more pending items in queue");
         break;
       }
 
       currentProcessingItem = nextItem;
       results.total++;
 
-      const result = await processQueueItem(nextItem, io, port, baudRate);
+      const result = await processQueueItem(
+        nextItem,
+        io,
+        port,
+        baudRate,
+        persistentPort,
+        persistentParser,
+        boxPort
+      );
       results.items.push(result);
 
       if (result.success) {
@@ -203,6 +330,10 @@ export async function startQueueProcessing(
         if (index !== -1) {
           nexaboard.queue.removeAt(index);
           await saveQueue(nexaboard.queue.getAll());
+
+          console.log(
+            `[QUEUE] Removed completed item ${nextItem.id} from queue`
+          );
 
           // Emit queue updated event
           if (io) {
@@ -225,7 +356,7 @@ export async function startQueueProcessing(
     isProcessing = false;
 
     console.log(
-      `Queue processing finished: ${results.completed} completed, ${results.failed} failed`
+      `[QUEUE] Processing finished: ${results.completed} completed, ${results.failed} failed`
     );
 
     return {
@@ -236,7 +367,7 @@ export async function startQueueProcessing(
   } catch (error) {
     isProcessing = false;
     currentProcessingItem = null;
-    console.error("Queue processing error:", error);
+    console.error("[QUEUE] Processing error:", error);
 
     return {
       success: false,

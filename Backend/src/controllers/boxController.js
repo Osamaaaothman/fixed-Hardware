@@ -29,6 +29,11 @@ let boxStatus = {
   error: null,
 };
 
+// Track last software command to differentiate hardware vs software triggers
+let lastSoftwareCommand = null;
+let lastSoftwareCommandTime = 0;
+const COMMAND_TIMEOUT = 2000; // 2 seconds window
+
 // Activity log (keep last 100 messages)
 let activityLog = [];
 const MAX_LOG_SIZE = 100;
@@ -125,6 +130,11 @@ const parseBoxMessage = (message, io) => {
       break;
 
     case "MODE_WRITING":
+      const now = Date.now();
+      const isHardwareTriggered =
+        lastSoftwareCommand !== "writing" ||
+        now - lastSoftwareCommandTime > COMMAND_TIMEOUT;
+
       updateBoxStatus(
         {
           currentMode: "WRITING",
@@ -132,6 +142,90 @@ const parseBoxMessage = (message, io) => {
         },
         io
       );
+
+      // If hardware button pressed, auto-start queue drawing
+      if (isHardwareTriggered && io) {
+        console.log("[BOX] Hardware draw button pressed - auto-starting queue");
+
+        // Emit event for frontend notification
+        io.emit("box:hardware-draw-triggered", {
+          timestamp: new Date().toISOString(),
+          mode: "WRITING",
+        });
+
+        // Auto-start queue processing
+        setTimeout(async () => {
+          try {
+            // Import required modules
+            const { startQueueProcessing } = await import(
+              "../services/queueProcessor.js"
+            );
+            const { getPersistentPort, getPersistentParser } = await import(
+              "./serialController.js"
+            );
+            const { nexaboard } = await import("../../Data.js");
+
+            // Check if queue has pending items
+            const items = nexaboard.queue.getAll();
+            const hasPending = items.some((item) => item.status === "pending");
+
+            if (!hasPending) {
+              console.log("[BOX] No pending items in queue for hardware draw");
+              io.emit("box:hardware-draw-error", {
+                error: "No pending items in queue",
+                timestamp: new Date().toISOString(),
+              });
+              // Return box to ready mode
+              if (boxPort && boxPort.isOpen) {
+                boxPort.write("ready\n");
+              }
+              return;
+            }
+
+            // Get persistent connections
+            const persistentPort = getPersistentPort();
+            const persistentParser = getPersistentParser();
+
+            // Check CNC connection
+            if (!persistentPort || !persistentPort.isOpen) {
+              console.log("[BOX] CNC not connected for hardware draw");
+              io.emit("box:hardware-draw-error", {
+                error: "CNC is not connected",
+                timestamp: new Date().toISOString(),
+              });
+              // Return box to ready mode
+              if (boxPort && boxPort.isOpen) {
+                boxPort.write("ready\n");
+              }
+              return;
+            }
+
+            console.log("[BOX] Starting queue processing via hardware button");
+
+            // Start queue processing with connections
+            startQueueProcessing(
+              io,
+              persistentPort.path || "COM4",
+              115200,
+              persistentPort,
+              persistentParser,
+              boxPort
+            ).catch((error) => {
+              console.error("[BOX] Hardware queue processing error:", error);
+              io.emit("box:hardware-draw-error", {
+                error: error.message,
+                timestamp: new Date().toISOString(),
+              });
+            });
+          } catch (error) {
+            console.error("[BOX] Error in hardware draw auto-start:", error);
+            io.emit("box:hardware-draw-error", {
+              error: error.message,
+              timestamp: new Date().toISOString(),
+            });
+          }
+        }, 500); // Small delay to ensure mode switch completed
+      }
       break;
 
     case "MODE_ERASING":
@@ -619,6 +713,10 @@ router.post("/command", (req, res) => {
 
       console.log(`[BOX] Command sent: ${command}`);
 
+      // Track software command to differentiate from hardware triggers
+      lastSoftwareCommand = command;
+      lastSoftwareCommandTime = Date.now();
+
       const logEntry = addToActivityLog(`Command sent: ${command}`, "command");
 
       if (io) {
@@ -713,5 +811,21 @@ router.get("/ports", async (req, res) => {
     });
   }
 });
+
+/**
+ * Helper functions to expose Box connection state for queue processor
+ */
+export function getBoxConnectionStatus() {
+  return {
+    connected: isBoxConnected,
+    port: boxPort ? boxPort.path : null,
+    isOpen: boxPort ? boxPort.isOpen : false,
+    currentMode: boxStatus.currentMode,
+  };
+}
+
+export function getBoxPort() {
+  return boxPort;
+}
 
 export default router;

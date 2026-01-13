@@ -236,6 +236,7 @@ router.get("/status", async (req, res) => {
  * POST /api/queue/process
  * Start processing the queue
  * Body: { port?, baudRate? }
+ * Validates CNC and Box connections before processing
  */
 router.post("/process", async (req, res) => {
   try {
@@ -249,8 +250,74 @@ router.post("/process", async (req, res) => {
       });
     }
 
+    // VALIDATION: Check CNC serial connection
+    let serialModule;
+    try {
+      serialModule = await import("./serialController.js");
+    } catch (err) {
+      console.error("[QUEUE] Failed to import serial controller:", err);
+    }
+
+    const cncConnected =
+      serialModule?.getPersistentConnectionStatus?.()?.connected || false;
+
+    // VALIDATION: Check Box connection
+    let boxModule;
+    try {
+      boxModule = await import("./boxController.js");
+    } catch (err) {
+      console.error("[QUEUE] Failed to import box controller:", err);
+    }
+
+    const boxConnected =
+      boxModule?.getBoxConnectionStatus?.()?.connected || false;
+
+    // Build validation errors
+    const errors = [];
+    if (!cncConnected) {
+      errors.push(
+        "CNC is not connected. Please connect CNC in Status page first."
+      );
+    }
+    if (!boxConnected) {
+      errors.push(
+        "Box is not connected. Please connect Box in Status page first."
+      );
+    }
+
+    if (errors.length > 0) {
+      return res.status(400).json({
+        success: false,
+        error: "Connection validation failed",
+        details: errors,
+        validation: {
+          cncConnected,
+          boxConnected,
+        },
+      });
+    }
+
+    // Get persistent connections to pass to processor
+    const persistentPort = serialModule?.getPersistentPort?.() || null;
+    const persistentParser = serialModule?.getPersistentParser?.() || null;
+    const boxPort = boxModule?.getBoxPort?.() || null;
+
+    console.log("[QUEUE] Starting queue processing with validated connections");
+    console.log(
+      `[QUEUE] CNC: ${cncConnected ? "Connected" : "Disconnected"}, Box: ${
+        boxConnected ? "Connected" : "Disconnected"
+      }`
+    );
+
     // Start processing asynchronously
-    startQueueProcessing(io, port, baudRate)
+    startQueueProcessing(
+      io,
+      port,
+      baudRate,
+      persistentPort,
+      persistentParser,
+      boxPort
+    )
       .then((result) => {
         console.log("Queue processing completed:", result);
       })
@@ -260,8 +327,12 @@ router.post("/process", async (req, res) => {
 
     res.json({
       success: true,
-      message: "Queue processing started",
+      message: "Queue processing started with validated connections",
       queueLength: nexaboard.queue.getAll().length,
+      connections: {
+        cncConnected,
+        boxConnected,
+      },
     });
   } catch (error) {
     console.error("Error starting queue processing:", error);
@@ -273,6 +344,7 @@ router.post("/process", async (req, res) => {
  * POST /api/queue/process-next
  * Process only the first pending item in queue
  * Body: { port?, baudRate? }
+ * Validates CNC and Box connections before processing
  */
 router.post("/process-next", async (req, res) => {
   try {
@@ -297,12 +369,96 @@ router.post("/process-next", async (req, res) => {
       });
     }
 
+    // VALIDATION: Check CNC serial connection
+    // Import serial controller state
+    let serialModule;
+    try {
+      serialModule = await import("./serialController.js");
+    } catch (err) {
+      console.error("[QUEUE] Failed to import serial controller:", err);
+    }
+
+    const cncConnected =
+      serialModule?.getPersistentConnectionStatus?.()?.connected || false;
+
+    // VALIDATION: Check Box connection
+    let boxModule;
+    try {
+      boxModule = await import("./boxController.js");
+    } catch (err) {
+      console.error("[QUEUE] Failed to import box controller:", err);
+    }
+
+    const boxConnected =
+      boxModule?.getBoxConnectionStatus?.()?.connected || false;
+
+    // Build validation errors
+    const errors = [];
+    if (!cncConnected) {
+      errors.push(
+        "CNC is not connected. Please connect CNC in Status page first."
+      );
+    }
+    if (!boxConnected) {
+      errors.push(
+        "Box is not connected. Please connect Box in Status page first."
+      );
+    }
+
+    if (errors.length > 0) {
+      return res.status(400).json({
+        success: false,
+        error: "Connection validation failed",
+        details: errors,
+        validation: {
+          cncConnected,
+          boxConnected,
+        },
+      });
+    }
+
+    // Get persistent connections to pass to processor
+    const persistentPort = serialModule?.getPersistentPort?.() || null;
+    const persistentParser = serialModule?.getPersistentParser?.() || null;
+    const boxPort = boxModule?.getBoxPort?.() || null;
+
+    console.log("[QUEUE] Starting draw with validated connections");
+    console.log(
+      `[QUEUE] CNC: ${cncConnected ? "Connected" : "Disconnected"}, Box: ${
+        boxConnected ? "Connected" : "Disconnected"
+      }`
+    );
+
+    // Process the item using enhanced processor with connections
+    const processorModule = await import("../services/queueProcessor.js");
+
+    // Start processing asynchronously
+    processorModule
+      .startQueueProcessing(
+        io,
+        port,
+        baudRate,
+        persistentPort,
+        persistentParser,
+        boxPort
+      )
+      .then((result) => {
+        console.log("[QUEUE] Processing completed:", result);
+      })
+      .catch((error) => {
+        console.error("[QUEUE] Processing error:", error);
+      });
+
     res.json({
       success: true,
-      message: "Processing next item",
+      message: "Processing next item with validated connections",
       item: {
         id: firstPendingItem.id,
         gcode: firstPendingItem.gcode,
+      },
+      connections: {
+        cncConnected,
+        boxConnected,
       },
     });
   } catch (error) {

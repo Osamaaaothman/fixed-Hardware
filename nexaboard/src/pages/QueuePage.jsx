@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Package, AlertCircle, FileCode } from "lucide-react";
+import { Package, AlertCircle, FileCode, Wifi, WifiOff } from "lucide-react";
 import { toast } from "sonner";
 import { io } from "socket.io-client";
 import QueueList from "../components/queue/QueueList";
@@ -16,6 +16,8 @@ import {
   processNextInQueue,
   sendCommand,
 } from "../api/queueApi";
+import { getSerialStatus } from "../api/serialApi";
+import { getBoxStatus } from "../api/boxApi";
 
 const QueuePage = () => {
   const [items, setItems] = useState([]);
@@ -27,6 +29,9 @@ const QueuePage = () => {
   const [currentQueueGcode, setCurrentQueueGcode] = useState("");
   const [selectedItem, setSelectedItem] = useState(null);
   const [showGcodeModal, setShowGcodeModal] = useState(false);
+  const [cncConnected, setCncConnected] = useState(false);
+  const [boxConnected, setBoxConnected] = useState(false);
+  const [currentProgress, setCurrentProgress] = useState(null);
 
   // Fetch queue data
   const fetchQueue = async () => {
@@ -50,6 +55,21 @@ const QueuePage = () => {
       toast.error("Failed to load queue");
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // Check connection status
+  const checkConnections = async () => {
+    try {
+      const [serialStatus, boxStatus] = await Promise.all([
+        getSerialStatus().catch(() => ({ connected: false })),
+        getBoxStatus().catch(() => ({ status: { connected: false } })),
+      ]);
+
+      setCncConnected(serialStatus.connected || false);
+      setBoxConnected(boxStatus.status?.connected || false);
+    } catch (error) {
+      console.error("Error checking connections:", error);
     }
   };
 
@@ -84,6 +104,15 @@ const QueuePage = () => {
 
       if (data.status === "started") {
         setIsProcessing(true);
+        setCurrentProgress({ itemId: data.itemId, progress: 0, current: 0, total: 0 });
+      } else if (data.status === "progress") {
+        setCurrentProgress({
+          itemId: data.itemId,
+          progress: data.progress,
+          current: data.current,
+          total: data.total,
+          currentLine: data.currentLine,
+        });
       }
 
       // Update item progress
@@ -108,51 +137,46 @@ const QueuePage = () => {
       console.log("ID:", data.id);
       console.log("ItemID:", data.itemId);
 
-      if (data.status === "completed") {
-        toast.success("Queue item completed successfully!");
+      setCurrentProgress(null);
+      setIsProcessing(false);
 
-        // Auto-remove completed item from queue
-        const idToRemove = data.id || data.itemId;
-        if (idToRemove) {
-          console.log("Attempting to remove item with ID:", idToRemove);
-          setTimeout(async () => {
-            try {
-              console.log("Calling removeFromQueue with ID:", idToRemove);
-              const result = await removeFromQueue(idToRemove);
-              console.log("Remove result:", result);
-              console.log("Completed item removed from queue");
-              // Force refresh queue
-              await fetchQueue();
-              console.log("Queue refreshed after removal");
-            } catch (error) {
-              console.error("Error removing completed item:", error);
-              // Still refresh even if remove failed
-              await fetchQueue();
-            }
-          }, 1000); // زيادة الوقت لـ 1 ثانية
-        } else {
-          console.warn("No ID found in completion event, removing by status");
-          // حذف أول item مكتمل
-          setTimeout(async () => {
-            try {
-              const currentItems = items.filter(
-                (item) => item.status === "completed"
-              );
-              if (currentItems.length > 0) {
-                await removeFromQueue(currentItems[0].id);
-              }
-              await fetchQueue();
-            } catch (error) {
-              console.error("Error in fallback removal:", error);
-              await fetchQueue();
-            }
-          }, 1000);
-        }
+      if (data.status === "completed") {
+        toast.success("✅ Queue item completed successfully!");
+
+        // Immediately refresh queue (item already removed by backend)
+        fetchQueue();
       } else if (data.status === "failed") {
-        toast.error(`Queue item failed: ${data.error}`);
+        toast.error(`❌ Queue item failed: ${data.error}`);
         // Refresh to update status
-        setTimeout(() => fetchQueue(), 500);
+        fetchQueue();
       }
+    });
+
+    // Listen for hardware draw button press
+    newSocket.on("box:hardware-draw-triggered", (data) => {
+      console.log("[QUEUE] Hardware draw button pressed:", data);
+      toast.info(
+        <div className="flex flex-col gap-1">
+          <div className="font-bold">🔧 Hardware Button Pressed</div>
+          <div className="text-sm">Auto-drawing from queue...</div>
+        </div>,
+        { duration: 3000 }
+      );
+      setIsProcessing(true);
+    });
+
+    // Listen for hardware draw errors
+    newSocket.on("box:hardware-draw-error", (data) => {
+      console.log("[QUEUE] Hardware draw error:", data);
+      toast.error(
+        <div className="flex flex-col gap-1">
+          <div className="font-bold">❌ Hardware Draw Failed</div>
+          <div className="text-sm">{data.error}</div>
+        </div>,
+        { duration: 5000 }
+      );
+      setIsProcessing(false);
+      fetchQueue();
     });
 
     return () => {
@@ -164,6 +188,11 @@ const QueuePage = () => {
   // Initial load
   useEffect(() => {
     fetchQueue();
+    checkConnections();
+    
+    // Check connections every 5 seconds
+    const interval = setInterval(checkConnections, 5000);
+    return () => clearInterval(interval);
   }, []);
 
   // Handle delete
@@ -200,16 +229,58 @@ const QueuePage = () => {
   // Handle process next (first pending item only)
   const handleProcessNext = async () => {
     try {
+      // Check connections first
+      await checkConnections();
+
+      const errors = [];
+      if (!cncConnected) {
+        errors.push("CNC is not connected");
+      }
+      if (!boxConnected) {
+        errors.push("Box is not connected");
+      }
+
+      if (errors.length > 0) {
+        // Show error modal with details
+        const errorMessage = errors.join(" and ");
+        toast.error(
+          <div className="flex flex-col gap-2">
+            <div className="font-bold">❌ Connection Error</div>
+            <div>{errorMessage}</div>
+            <div className="text-xs opacity-70">
+              Please connect in Status page first
+            </div>
+          </div>,
+          { duration: 5000 }
+        );
+        return;
+      }
+
       const result = await processNextInQueue();
 
       if (result.success && result.item) {
         setCurrentQueueGcode(result.item.gcode);
         setIsSerialLogOpen(true);
-        toast.success("Drawing next item...");
+        toast.success("🎨 Drawing started...");
       }
     } catch (error) {
       console.error("Error processing next item:", error);
-      toast.error(error.message || "Failed to process next item");
+      
+      // Check if error has validation details
+      if (error.response?.data?.details) {
+        const details = error.response.data.details;
+        toast.error(
+          <div className="flex flex-col gap-2">
+            <div className="font-bold">❌ Cannot Start Drawing</div>
+            {details.map((detail, idx) => (
+              <div key={idx} className="text-sm">• {detail}</div>
+            ))}
+          </div>,
+          { duration: 6000 }
+        );
+      } else {
+        toast.error(error.message || "Failed to process next item");
+      }
     }
   };
 
@@ -278,13 +349,68 @@ const QueuePage = () => {
               </p>
             </div>
 
+            {/* Connection Status Indicators */}
+            <div className="flex items-center gap-3">
+              <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg ${
+                cncConnected ? 'bg-success/20 text-success' : 'bg-error/20 text-error'
+              }`}>
+                {cncConnected ? <Wifi className="w-4 h-4" /> : <WifiOff className="w-4 h-4" />}
+                <span className="text-xs font-medium">CNC</span>
+              </div>
+              <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg ${
+                boxConnected ? 'bg-success/20 text-success' : 'bg-error/20 text-error'
+              }`}>
+                {boxConnected ? <Wifi className="w-4 h-4" /> : <WifiOff className="w-4 h-4" />}
+                <span className="text-xs font-medium">Box</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Progress Bar */}
+          {currentProgress && (
+            <div className="mt-4 p-4 bg-primary/10 border border-primary/30 rounded-lg">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium text-primary">
+                  Drawing in progress...
+                </span>
+                <span className="text-sm font-bold text-primary">
+                  {currentProgress.progress}%
+                </span>
+              </div>
+              <div className="w-full bg-base-300 rounded-full h-3 overflow-hidden">
+                <div
+                  className="bg-primary h-full transition-all duration-300 ease-out rounded-full"
+                  style={{ width: `${currentProgress.progress}%` }}
+                ></div>
+              </div>
+              <div className="mt-2 flex items-center justify-between text-xs text-base-content/60">
+                <span>
+                  Line {currentProgress.current} / {currentProgress.total}
+                </span>
+                {currentProgress.currentLine && (
+                  <span className="font-mono truncate max-w-xs">
+                    {currentProgress.currentLine}
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
             {/* Action Buttons */}
             {items.length > 0 && (
-              <div className="flex gap-2">
+              <div className="flex gap-2 mt-4">
                 <button
                   onClick={handleProcessNext}
-                  disabled={stats.pending === 0 || isProcessing}
+                  disabled={stats.pending === 0 || isProcessing || !cncConnected || !boxConnected}
                   className="btn btn-primary gap-2"
+                  title={
+                    !cncConnected || !boxConnected
+                      ? "Both CNC and Box must be connected"
+                      : stats.pending === 0
+                      ? "No pending items"
+                      : "Draw next item"
+                  }
                 >
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
@@ -298,7 +424,7 @@ const QueuePage = () => {
                   >
                     <polygon points="5 3 19 12 5 21 5 3" />
                   </svg>
-                  Draw Next
+                  {isProcessing ? "Drawing..." : "Draw Next"}
                 </button>
                 <button
                   onClick={handleClear}
@@ -361,13 +487,43 @@ const QueuePage = () => {
             <div className="bg-base-200 rounded-2xl p-6 shadow-xl border border-base-300">
               <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
                 <Package className="w-5 h-5" />
-                Connection Info
+                Connection Status
               </h3>
-              <p className="text-sm text-base-content/70">
-                CNC and Box connections are now managed in the{" "}
-                <strong>Status</strong> page. Go to Status to establish
-                persistent connections before drawing.
-              </p>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-base-content/70">CNC Connection:</span>
+                  <div className={`flex items-center gap-2 px-2 py-1 rounded ${
+                    cncConnected ? 'bg-success/20 text-success' : 'bg-error/20 text-error'
+                  }`}>
+                    {cncConnected ? <Wifi className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
+                    <span className="text-xs font-medium">
+                      {cncConnected ? 'Connected' : 'Disconnected'}
+                    </span>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-base-content/70">Box Connection:</span>
+                  <div className={`flex items-center gap-2 px-2 py-1 rounded ${
+                    boxConnected ? 'bg-success/20 text-success' : 'bg-error/20 text-error'
+                  }`}>
+                    {boxConnected ? <Wifi className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
+                    <span className="text-xs font-medium">
+                      {boxConnected ? 'Connected' : 'Disconnected'}
+                    </span>
+                  </div>
+                </div>
+                {(!cncConnected || !boxConnected) && (
+                  <div className="mt-3 pt-3 border-t border-base-300">
+                    <p className="text-xs text-warning flex items-start gap-2">
+                      <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                      <span>
+                        Both CNC and Box must be connected before drawing. 
+                        Go to <strong>Status</strong> page to establish connections.
+                      </span>
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>

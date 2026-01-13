@@ -58,7 +58,12 @@ router.use((req, res, next) => {
  * Prefers persistent connection if available, falls back to temporary connection
  */
 router.post("/send", async (req, res) => {
-  const { gcode, port = "/dev/ttyUSB0", baudRate = 115200, usePersistent = true } = req.body;
+  const {
+    gcode,
+    port = "/dev/ttyUSB0",
+    baudRate = 115200,
+    usePersistent = true,
+  } = req.body;
 
   if (!gcode) {
     return res.status(400).json({ error: "No G-code provided" });
@@ -76,17 +81,24 @@ router.post("/send", async (req, res) => {
 
   try {
     // PREFER PERSISTENT CONNECTION IF AVAILABLE
-    if (usePersistent && persistentPort && persistentPort.isOpen && persistentConnected) {
-      console.log("[SERIAL] Using persistent connection for G-code transmission");
+    if (
+      usePersistent &&
+      persistentPort &&
+      persistentPort.isOpen &&
+      persistentConnected
+    ) {
+      console.log(
+        "[SERIAL] Using persistent connection for G-code transmission"
+      );
       const startTime = Date.now();
-      
+
       sendEvent("status", {
         message: "Using persistent connection",
         timestamp: Date.now() - startTime,
       });
-      
+
       isDrawing = true;
-      
+
       // Emit Socket.IO event
       emitSerialEvent("status", {
         connected: true,
@@ -95,15 +107,24 @@ router.post("/send", async (req, res) => {
         position: lastKnownPosition,
         lastCommand: "Drawing...",
       });
-      
+
       // Use persistent connection
-      sendGcodeLinesSSE(gcode, persistentPort, persistentParser, startTime, res, sendEvent);
+      sendGcodeLinesSSE(
+        gcode,
+        persistentPort,
+        persistentParser,
+        startTime,
+        res,
+        sendEvent
+      );
       return; // Exit early
     }
-    
+
     // FALLBACK TO TEMPORARY CONNECTION
-    console.log("[SERIAL] No persistent connection available, creating temporary connection");
-    
+    console.log(
+      "[SERIAL] No persistent connection available, creating temporary connection"
+    );
+
     // Close existing temporary connection if any
     if (activePort && activePort.isOpen) {
       console.log("Closing existing temporary port connection...");
@@ -116,7 +137,7 @@ router.post("/send", async (req, res) => {
       activePort = null;
       parser = null;
       isConnected = false;
-      
+
       // Wait a bit after closing before reopening
       await new Promise((resolve) => setTimeout(resolve, 500));
     }
@@ -149,7 +170,7 @@ router.post("/send", async (req, res) => {
       console.log(`Serial port ${port} opened successfully`);
       isConnected = true;
       isDrawing = true;
-      
+
       // Ensure DTR/RTS remain low after opening
       activePort.set({ dtr: false, rts: false }, (err) => {
         if (err) {
@@ -178,7 +199,10 @@ router.post("/send", async (req, res) => {
     activePort.on("error", (err) => {
       console.error("Serial port error:", err);
       isDrawing = false;
-      sendEvent("error", { message: err.message, timestamp: Date.now() - startTime });
+      sendEvent("error", {
+        message: err.message,
+        timestamp: Date.now() - startTime,
+      });
       res.end();
     });
 
@@ -186,9 +210,11 @@ router.post("/send", async (req, res) => {
       console.log("Serial port closed");
       isConnected = false;
       isDrawing = false;
-      
+
       // Log last known position for recovery
-      console.log(`Last known position before disconnect: X${lastKnownPosition.x} Y${lastKnownPosition.y} Z${lastKnownPosition.z}`);
+      console.log(
+        `Last known position before disconnect: X${lastKnownPosition.x} Y${lastKnownPosition.y} Z${lastKnownPosition.z}`
+      );
       console.log(`Last successful line: ${lastSuccessfulLine}`);
     });
 
@@ -227,11 +253,13 @@ function sendGcodeLinesSSE(gcode, port, parser, startTime, res, sendEvent) {
 
   parser.on("data", (data) => {
     const response = data.trim();
-    
+
     // Detect corrupted data (contains non-printable characters or excessive special chars)
     const corruptionIndicators = /[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]|[\?]{3,}/;
     if (corruptionIndicators.test(response) && response.length > 20) {
-      console.error(`⚠️ CORRUPTED DATA DETECTED: ${response.substring(0, 50)}...`);
+      console.error(
+        `⚠️ CORRUPTED DATA DETECTED: ${response.substring(0, 50)}...`
+      );
       sendEvent("log", {
         timestamp: Date.now() - startTime,
         message: "⚠️ WARNING: Data corruption detected - Check USB cable!",
@@ -248,7 +276,7 @@ function sendGcodeLinesSSE(gcode, port, parser, startTime, res, sendEvent) {
       clearTimeout(responseTimeout);
       responseTimeout = null;
     }
-    
+
     // Reset consecutive timeout counter on successful response
     consecutiveTimeouts = 0;
 
@@ -268,9 +296,12 @@ function sendGcodeLinesSSE(gcode, port, parser, startTime, res, sendEvent) {
         return; // Don't treat as error
       } else if (transmissionStarted) {
         // This is an unexpected reset during transmission
-        console.error("⚠️ GRBL RESET DETECTED - Continuing anyway (CHECK USB CABLE!)");
+        console.error(
+          "⚠️ GRBL RESET DETECTED - Continuing anyway (CHECK USB CABLE!)"
+        );
         sendEvent("log", {
-          message: "⚠️ WARNING: GRBL reset detected - Check USB cable! Attempting to continue...",
+          message:
+            "⚠️ WARNING: GRBL reset detected - Check USB cable! Attempting to continue...",
           timestamp: Date.now() - startTime,
         });
         // Reset state and try to continue
@@ -309,7 +340,7 @@ function sendGcodeLinesSSE(gcode, port, parser, startTime, res, sendEvent) {
       const totalTime = ((endTime - startTime) / 1000).toFixed(2);
 
       console.log(`G-code transmission complete in ${totalTime} seconds`);
-      
+
       isDrawing = false;
 
       sendEvent("complete", {
@@ -317,7 +348,7 @@ function sendGcodeLinesSSE(gcode, port, parser, startTime, res, sendEvent) {
         totalTime: totalTime + " seconds",
         timestamp: endTime - startTime,
       });
-      
+
       // Emit Socket.IO event
       emitSerialEvent("status", {
         connected: persistentPort ? persistentConnected : false,
@@ -354,7 +385,7 @@ function sendGcodeLinesSSE(gcode, port, parser, startTime, res, sendEvent) {
       const xMatch = line.match(/X([-\d.]+)/);
       const yMatch = line.match(/Y([-\d.]+)/);
       const zMatch = line.match(/Z([-\d.]+)/);
-      
+
       if (xMatch) lastKnownPosition.x = parseFloat(xMatch[1]);
       if (yMatch) lastKnownPosition.y = parseFloat(yMatch[1]);
       if (zMatch) lastKnownPosition.z = parseFloat(zMatch[1]);
@@ -396,8 +427,10 @@ function sendGcodeLinesSSE(gcode, port, parser, startTime, res, sendEvent) {
       // Set timeout for this command
       responseTimeout = setTimeout(() => {
         consecutiveTimeouts++;
-        console.error(`⚠️ Timeout ${consecutiveTimeouts}/${MAX_CONSECUTIVE_TIMEOUTS} waiting for response to line ${currentLine}`);
-        
+        console.error(
+          `⚠️ Timeout ${consecutiveTimeouts}/${MAX_CONSECUTIVE_TIMEOUTS} waiting for response to line ${currentLine}`
+        );
+
         if (consecutiveTimeouts >= MAX_CONSECUTIVE_TIMEOUTS) {
           // Too many timeouts, likely Arduino is dead
           sendEvent("error", {
@@ -410,12 +443,12 @@ function sendGcodeLinesSSE(gcode, port, parser, startTime, res, sendEvent) {
           res.end();
           return;
         }
-        
+
         sendEvent("log", {
           message: `⚠️ Timeout on line ${currentLine} - Continuing... (Check USB cable!)`,
           timestamp: Date.now() - startTime,
         });
-        
+
         // Try to continue anyway
         waitingForResponse = false;
         sendNextLine();
@@ -463,8 +496,16 @@ router.get("/status", (req, res) => {
   res.json({
     success: true,
     connected: persistentConnected || isConnected,
-    port: persistentPort ? persistentPort.path : (activePort ? activePort.path : null),
-    isOpen: persistentPort ? persistentPort.isOpen : (activePort ? activePort.isOpen : false),
+    port: persistentPort
+      ? persistentPort.path
+      : activePort
+      ? activePort.path
+      : null,
+    isOpen: persistentPort
+      ? persistentPort.isOpen
+      : activePort
+      ? activePort.isOpen
+      : false,
     isDrawing: isDrawing,
     position: lastKnownPosition,
     lastCommand: lastCommand,
@@ -511,7 +552,9 @@ router.post("/connect", async (req, res) => {
       hupcl: false,
     });
 
-    persistentParser = persistentPort.pipe(new ReadlineParser({ delimiter: "\r\n" }));
+    persistentParser = persistentPort.pipe(
+      new ReadlineParser({ delimiter: "\r\n" })
+    );
 
     // Setup event listeners
     persistentPort.on("error", (err) => {
@@ -530,7 +573,9 @@ router.post("/connect", async (req, res) => {
             if (setErr) {
               console.log("Note: Could not set DTR/RTS:", setErr.message);
             } else {
-              console.log("Persistent connection: DTR/RTS disabled - Arduino will NOT reset");
+              console.log(
+                "Persistent connection: DTR/RTS disabled - Arduino will NOT reset"
+              );
             }
           });
           resolve();
@@ -562,10 +607,10 @@ router.post("/connect", async (req, res) => {
   } catch (error) {
     console.error("Error opening persistent connection:", error);
     persistentConnected = false;
-    
+
     // Emit Socket.IO error event
     emitSerialEvent("error", { message: error.message });
-    
+
     res.status(500).json({
       success: false,
       error: error.message || "Failed to open persistent connection",
@@ -589,7 +634,7 @@ router.post("/disconnect", async (req, res) => {
       persistentPort = null;
       persistentParser = null;
       persistentConnected = false;
-      
+
       // Emit Socket.IO event
       emitSerialEvent("disconnected", {});
       emitSerialEvent("status", {
@@ -599,7 +644,7 @@ router.post("/disconnect", async (req, res) => {
         position: lastKnownPosition,
         lastCommand: null,
       });
-      
+
       res.json({
         success: true,
         message: "Persistent connection closed",
@@ -612,10 +657,10 @@ router.post("/disconnect", async (req, res) => {
     }
   } catch (error) {
     console.error("Error closing persistent connection:", error);
-    
+
     // Emit Socket.IO error event
     emitSerialEvent("error", { message: error.message });
-    
+
     res.status(500).json({
       success: false,
       error: error.message || "Failed to close connection",
@@ -629,7 +674,12 @@ router.post("/disconnect", async (req, res) => {
  */
 router.post("/command", async (req, res) => {
   try {
-    const { command, port = "/dev/ttyUSB0", baudRate = 115200, usePersistent = true } = req.body;
+    const {
+      command,
+      port = "/dev/ttyUSB0",
+      baudRate = 115200,
+      usePersistent = true,
+    } = req.body;
 
     if (!command) {
       return res.status(400).json({
@@ -639,7 +689,12 @@ router.post("/command", async (req, res) => {
     }
 
     // Try to use persistent connection first
-    if (usePersistent && persistentPort && persistentPort.isOpen && persistentConnected) {
+    if (
+      usePersistent &&
+      persistentPort &&
+      persistentPort.isOpen &&
+      persistentConnected
+    ) {
       console.log(`Sending command via persistent connection: ${command}`);
 
       const responses = [];
@@ -682,16 +737,16 @@ router.post("/command", async (req, res) => {
       persistentParser.off("data", dataHandler);
 
       const arduinoResponse = responses.join(" ");
-      
+
       // Store last command
       lastCommand = command;
-      
+
       // Emit Socket.IO event
-      emitSerialEvent("response", { 
-        command, 
-        response: arduinoResponse || "ok" 
+      emitSerialEvent("response", {
+        command,
+        response: arduinoResponse || "ok",
       });
-      
+
       return res.json({
         success: true,
         message: `Command sent: ${command}`,
@@ -823,7 +878,9 @@ router.post("/recover", async (req, res) => {
 
   try {
     console.log("=== Starting Recovery Process ===");
-    console.log(`Last known position was: X${lastKnownPosition.x} Y${lastKnownPosition.y} Z${lastKnownPosition.z}`);
+    console.log(
+      `Last known position was: X${lastKnownPosition.x} Y${lastKnownPosition.y} Z${lastKnownPosition.z}`
+    );
     console.log(`GRBL has reset, so current position in GRBL is (0,0,0)`);
     console.log(`We need to move back to actual origin (0,0,0)`);
 
@@ -834,7 +891,9 @@ router.post("/recover", async (req, res) => {
       autoOpen: false,
     });
 
-    const recoveryParser = serialPort.pipe(new ReadlineParser({ delimiter: "\r\n" }));
+    const recoveryParser = serialPort.pipe(
+      new ReadlineParser({ delimiter: "\r\n" })
+    );
     const responses = [];
 
     recoveryParser.on("data", (data) => {
@@ -906,5 +965,24 @@ router.post("/recover", async (req, res) => {
     });
   }
 });
+
+/**
+ * Helper functions to expose connection state for queue processor
+ */
+export function getPersistentConnectionStatus() {
+  return {
+    connected: persistentConnected,
+    port: persistentPort ? persistentPort.path : null,
+    isOpen: persistentPort ? persistentPort.isOpen : false,
+  };
+}
+
+export function getPersistentPort() {
+  return persistentPort;
+}
+
+export function getPersistentParser() {
+  return persistentParser;
+}
 
 export default router;
