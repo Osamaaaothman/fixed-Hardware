@@ -184,8 +184,8 @@ async function processQueueItem(
     // Return Box to ready/menu mode after drawing
     if (boxPort && boxPort.isOpen && boxModeChanged) {
       try {
-        await sendBoxCommand(boxPort, "ready");
-        console.log("[QUEUE] Box returned to ready mode");
+        await sendBoxCommand(boxPort, "exit_writing");
+        console.log("[QUEUE] Box exited writing mode, returned to menu");
 
         // Emit socket event
         if (io) {
@@ -197,7 +197,7 @@ async function processQueueItem(
         }
       } catch (boxError) {
         console.error(
-          "[QUEUE] Warning: Failed to return Box to ready mode:",
+          "[QUEUE] Warning: Failed to exit Box writing mode:",
           boxError
         );
         // Continue anyway
@@ -236,10 +236,12 @@ async function processQueueItem(
     // Return Box to ready mode on error
     if (boxPort && boxPort.isOpen && boxModeChanged) {
       try {
-        await sendBoxCommand(boxPort, "ready");
-        console.log("[QUEUE] Box returned to ready mode after error");
+        await sendBoxCommand(boxPort, "exit_writing");
+        console.log(
+          "[QUEUE] Box exited writing mode after error, returned to menu"
+        );
       } catch (boxError) {
-        console.error("[QUEUE] Failed to return Box to ready mode:", boxError);
+        console.error("[QUEUE] Failed to exit Box writing mode:", boxError);
       }
     }
 

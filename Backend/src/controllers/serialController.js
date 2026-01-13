@@ -324,15 +324,15 @@ function sendGcodeLinesSSE(
   const returnBoxToReady = async () => {
     if (boxPort && boxPort.isOpen && boxModeChanged) {
       try {
-        console.log("[SERIAL] Returning Box to READY mode");
-        boxPort.write("ready\n");
+        console.log("[SERIAL] Exiting Box from WRITING mode to MENU");
+        boxPort.write("exit_writing\n");
 
         // Wait a moment for the command to be processed
         await new Promise((resolve) => setTimeout(resolve, 300));
-        console.log("[SERIAL] Box should now be in READY/Menu mode");
+        console.log("[SERIAL] Box should now be back in Menu mode");
       } catch (boxError) {
         console.error(
-          "[SERIAL] Warning: Failed to return Box to ready mode:",
+          "[SERIAL] Warning: Failed to exit Box writing mode:",
           boxError
         );
       }
