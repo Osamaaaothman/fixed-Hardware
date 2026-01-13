@@ -456,10 +456,10 @@ const QueuePage = () => {
                 {isProcessing ? "Drawing..." : "Draw Next"}
               </button>
               */}
-              
+
               {/* Erase Board Button */}
               <EraseButton disabled={!cncConnected || !boxConnected} />
-              
+
               <button
                 onClick={handleClear}
                 disabled={isProcessing}
