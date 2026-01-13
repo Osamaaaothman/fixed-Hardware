@@ -1,6 +1,158 @@
 {
   "captures": [
     {
+      "id": "630ffded-d5d7-45f7-8362-f6dcf6cc8888",
+      "name": "Screenshot_01-12-2026_18-16-02",
+      "filename": "capture-1768241762821.jpg",
+      "timestamp": 1768241762821,
+      "date": "2026-01-12T18:16:02.828Z",
+      "size": 8113
+    },
+    {
+      "id": "8653e6cc-f222-4690-8f56-4eb4316bee2d",
+      "name": "Screenshot_01-12-2026_18-15-44",
+      "filename": "capture-1768241745163.jpg",
+      "timestamp": 1768241745163,
+      "date": "2026-01-12T18:15:45.164Z",
+      "size": 7122
+    },
+    {
+      "id": "49941320-b7af-404d-a93b-1afa6181f1ff",
+      "name": "Screenshot_01-12-2026_18-15-28",
+      "filename": "capture-1768241728606.jpg",
+      "timestamp": 1768241728606,
+      "date": "2026-01-12T18:15:28.607Z",
+      "size": 7122
+    },
+    {
+      "id": "094bc247-1a77-475e-ba44-a4f19d35a351",
+      "name": "Screenshot_01-12-2026_18-15-22",
+      "filename": "capture-1768241722672.jpg",
+      "timestamp": 1768241722672,
+      "date": "2026-01-12T18:15:22.673Z",
+      "size": 7122
+    },
+    {
+      "id": "303dfe26-1fda-40ef-b678-2f4c6d989680",
+      "name": "Screenshot_01-12-2026_18-14-26",
+      "filename": "capture-1768241667002.jpg",
+      "timestamp": 1768241667002,
+      "date": "2026-01-12T18:14:27.002Z",
+      "size": 7122
+    },
+    {
+      "id": "64cc714d-595d-4474-a6af-256d928c036d",
+      "name": "Screenshot_01-12-2026_18-14-13",
+      "filename": "capture-1768241653393.jpg",
+      "timestamp": 1768241653393,
+      "date": "2026-01-12T18:14:13.393Z",
+      "size": 7133
+    },
+    {
+      "id": "4357a417-e436-4080-96e5-1bc95c620aae",
+      "name": "Screenshot_01-12-2026_18-13-37",
+      "filename": "capture-1768241617312.jpg",
+      "timestamp": 1768241617312,
+      "date": "2026-01-12T18:13:37.313Z",
+      "size": 7113
+    },
+    {
+      "id": "1c8cf747-3fdc-44d3-9051-52305fedaccf",
+      "name": "Screenshot_01-12-2026_18-13-33",
+      "filename": "capture-1768241614035.jpg",
+      "timestamp": 1768241614035,
+      "date": "2026-01-12T18:13:34.036Z",
+      "size": 7113
+    },
+    {
+      "id": "b93eb47d-db89-44d5-a4bf-d8c91bb847e7",
+      "name": "Screenshot_01-12-2026_18-12-31",
+      "filename": "capture-1768241552091.jpg",
+      "timestamp": 1768241552091,
+      "date": "2026-01-12T18:12:32.091Z",
+      "size": 7113
+    },
+    {
+      "id": "544e9da3-1c91-467c-a676-16ffdb22fe59",
+      "name": "Screenshot_01-12-2026_18-11-40",
+      "filename": "capture-1768241500607.jpg",
+      "timestamp": 1768241500607,
+      "date": "2026-01-12T18:11:40.608Z",
+      "size": 7119
+    },
+    {
+      "id": "59948c45-e080-4944-b91f-d86f04488e1a",
+      "name": "Screenshot_01-12-2026_18-09-47",
+      "filename": "capture-1768241388033.jpg",
+      "timestamp": 1768241388033,
+      "date": "2026-01-12T18:09:48.033Z",
+      "size": 7119
+    },
+    {
+      "id": "17bd02f5-19c0-4ce2-9f6b-330c1cb07653",
+      "name": "Screenshot_01-12-2026_18-09-39",
+      "filename": "capture-1768241379367.jpg",
+      "timestamp": 1768241379367,
+      "date": "2026-01-12T18:09:39.368Z",
+      "size": 7119
+    },
+    {
+      "id": "1163459d-6783-4021-8cec-6c9585aa3a10",
+      "name": "Screenshot_01-12-2026_18-09-22",
+      "filename": "capture-1768241362747.jpg",
+      "timestamp": 1768241362747,
+      "date": "2026-01-12T18:09:22.749Z",
+      "size": 7119
+    },
+    {
+      "id": "d63f9e90-dc91-4ef5-9768-3fa530b2b710",
+      "name": "Screenshot_01-12-2026_18-08-09",
+      "filename": "capture-1768241289309.jpg",
+      "timestamp": 1768241289309,
+      "date": "2026-01-12T18:08:09.320Z",
+      "size": 7119
+    },
+    {
+      "id": "35440d75-6bfd-4f27-b21b-4c1082e85e66",
+      "name": "Screenshot_01-12-2026_18-05-36",
+      "filename": "capture-1768241136983.jpg",
+      "timestamp": 1768241136983,
+      "date": "2026-01-12T18:05:36.986Z",
+      "size": 7119
+    },
+    {
+      "id": "fc403256-e3cd-4fa7-9f01-54878ba8f6c7",
+      "name": "rrr",
+      "filename": "capture-1768241119610.jpg",
+      "timestamp": 1768241119610,
+      "date": "2026-01-12T18:05:19.612Z",
+      "size": 7113
+    },
+    {
+      "id": "dd18cf54-fd68-4412-b36e-1e0c49c3bb2c",
+      "name": "44",
+      "filename": "capture-1768241108882.jpg",
+      "timestamp": 1768241108882,
+      "date": "2026-01-12T18:05:08.884Z",
+      "size": 7120
+    },
+    {
+      "id": "fc6ace90-e564-4d9f-8659-7bbd2cc10904",
+      "name": "Screenshot_01-12-2026_18-03-05",
+      "filename": "capture-1768240985704.jpg",
+      "timestamp": 1768240985704,
+      "date": "2026-01-12T18:03:05.706Z",
+      "size": 7110
+    },
+    {
+      "id": "5aa0c2d5-5a9a-472c-9356-f56be2ca95e7",
+      "name": "Screenshot_01-12-2026_18-02-37",
+      "filename": "capture-1768240957517.jpg",
+      "timestamp": 1768240957517,
+      "date": "2026-01-12T18:02:37.520Z",
+      "size": 6144
+    },
+    {
       "id": "97440538-33dc-47b8-bb5f-310e09680452",
       "name": "Screenshot_01-12-2026_17-39-24",
       "filename": "capture-1768239565341.jpg",
