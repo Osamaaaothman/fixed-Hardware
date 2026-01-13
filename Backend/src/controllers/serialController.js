@@ -1,8 +1,11 @@
 import express from "express";
 import { SerialPort } from "serialport";
 import { ReadlineParser } from "@serialport/parser-readline";
+import { exec } from "child_process";
+import { promisify } from "util";
 
 const router = express.Router();
+const execAsync = promisify(exec);
 
 let activePort = null;
 let parser = null;
@@ -16,6 +19,21 @@ let lastCommand = null; // Track last command sent
 let lastKnownPosition = { x: 0, y: 0, z: -2.3 }; // Start at home with pen up
 let isDrawing = false;
 let lastSuccessfulLine = 0;
+
+/**
+ * Disable HUPCL on serial port to prevent Arduino reset
+ * This must be done BEFORE opening the port
+ */
+const disableHUPCL = async (portPath, baudRate = 115200) => {
+  try {
+    await execAsync(`stty -F ${portPath} ${baudRate} -hupcl`);
+    console.log(`[SERIAL] HUPCL disabled on ${portPath}`);
+    return true;
+  } catch (error) {
+    console.warn(`[SERIAL] Warning: Could not disable HUPCL: ${error.message}`);
+    return false;
+  }
+};
 
 // Helper function to emit Socket.IO events
 let io = null;
@@ -103,8 +121,11 @@ router.post("/send", async (req, res) => {
       await new Promise((resolve) => setTimeout(resolve, 500));
     }
 
+    // CRITICAL: Disable HUPCL BEFORE opening port
+    await disableHUPCL(port, baudRate);
+
     // Create new serial port connection
-    // NOTE: Try to prevent DTR reset (may not work on all systems)
+    // Disable DTR/RTS/HUPCL to prevent Arduino auto-reset
     activePort = new SerialPort({
       path: port,
       baudRate: baudRate,
@@ -113,6 +134,10 @@ router.post("/send", async (req, res) => {
       stopBits: 1,
       flowControl: false,
       autoOpen: false,
+      // Prevent Arduino reset on serial open
+      dtr: false,
+      rts: false,
+      hupcl: false,
     });
 
     parser = activePort.pipe(new ReadlineParser({ delimiter: "\r\n" }));
@@ -125,15 +150,14 @@ router.post("/send", async (req, res) => {
       isConnected = true;
       isDrawing = true;
       
-      // Try to disable DTR/RTS (may not work on all systems)
-      try {
-        activePort.set({ dtr: false, rts: false }, (err) => {
-          if (err) console.log("Note: Could not set DTR/RTS:", err.message);
-          else console.log("DTR/RTS disabled successfully");
-        });
-      } catch (e) {
-        console.log("Note: DTR/RTS control not available on this system");
-      }
+      // Ensure DTR/RTS remain low after opening
+      activePort.set({ dtr: false, rts: false }, (err) => {
+        if (err) {
+          console.log("Note: Could not set DTR/RTS:", err.message);
+        } else {
+          console.log("DTR/RTS disabled - Arduino will NOT reset");
+        }
+      });
 
       sendEvent("status", {
         message: "Connected to Arduino",
@@ -472,11 +496,19 @@ router.post("/connect", async (req, res) => {
 
     console.log(`Opening persistent connection to ${port}`);
 
+    // CRITICAL: Disable HUPCL BEFORE opening port
+    await disableHUPCL(port, baudRate);
+
     // Create persistent serial port
+    // Disable DTR/RTS/HUPCL to prevent Arduino auto-reset
     persistentPort = new SerialPort({
       path: port,
       baudRate: baudRate,
       autoOpen: false,
+      // Prevent Arduino reset on serial open
+      dtr: false,
+      rts: false,
+      hupcl: false,
     });
 
     persistentParser = persistentPort.pipe(new ReadlineParser({ delimiter: "\r\n" }));
@@ -493,14 +525,14 @@ router.post("/connect", async (req, res) => {
         if (err) {
           reject(err);
         } else {
-          // Try to disable DTR/RTS
-          try {
-            persistentPort.set({ dtr: false, rts: false }, (setErr) => {
-              if (setErr) console.log("Note: Could not set DTR/RTS:", setErr.message);
-            });
-          } catch (e) {
-            console.log("Note: DTR/RTS control not available");
-          }
+          // Ensure DTR/RTS remain low after opening
+          persistentPort.set({ dtr: false, rts: false }, (setErr) => {
+            if (setErr) {
+              console.log("Note: Could not set DTR/RTS:", setErr.message);
+            } else {
+              console.log("Persistent connection: DTR/RTS disabled - Arduino will NOT reset");
+            }
+          });
           resolve();
         }
       });
@@ -672,12 +704,18 @@ router.post("/command", async (req, res) => {
     // Fall back to temporary connection if no persistent connection
     console.log(`Attempting to send command to ${port}: ${command}`);
 
+    // CRITICAL: Disable HUPCL BEFORE opening port
+    await disableHUPCL(port, baudRate);
+
     // Create temporary serial connection
-    // Prevent DTR reset
+    // Disable DTR/RTS/HUPCL to prevent Arduino auto-reset
     const serialPort = new SerialPort({
       path: port,
       baudRate: baudRate,
       autoOpen: false,
+      // Prevent Arduino reset on serial open
+      dtr: false,
+      rts: false,
       hupcl: false,
       lock: false,
     });
@@ -700,9 +738,13 @@ router.post("/command", async (req, res) => {
       serialPort.open((err) => {
         if (err) reject(err);
         else {
-          // Disable DTR to prevent reset
+          // Ensure DTR/RTS remain low after opening
           serialPort.set({ dtr: false, rts: false }, (setErr) => {
-            if (setErr) console.error("Error setting DTR/RTS:", setErr);
+            if (setErr) {
+              console.error("Error setting DTR/RTS:", setErr);
+            } else {
+              console.log("DTR/RTS disabled - Arduino will NOT reset");
+            }
           });
           resolve();
         }

@@ -1,8 +1,11 @@
 import express from "express";
 import { SerialPort } from "serialport";
 import { ReadlineParser } from "@serialport/parser-readline";
+import { exec } from "child_process";
+import { promisify } from "util";
 
 const router = express.Router();
+const execAsync = promisify(exec);
 
 // Box Serial Configuration
 const BOX_CONFIG = {
@@ -29,6 +32,21 @@ let boxStatus = {
 // Activity log (keep last 100 messages)
 let activityLog = [];
 const MAX_LOG_SIZE = 100;
+
+/**
+ * Disable HUPCL on serial port to prevent Arduino reset
+ * This must be done BEFORE opening the port
+ */
+const disableHUPCL = async (portPath) => {
+  try {
+    await execAsync(`stty -F ${portPath} 9600 -hupcl`);
+    console.log(`[BOX] HUPCL disabled on ${portPath}`);
+    return true;
+  } catch (error) {
+    console.warn(`[BOX] Warning: Could not disable HUPCL: ${error.message}`);
+    return false;
+  }
+};
 
 /**
  * Add message to activity log
@@ -237,7 +255,7 @@ const parseBoxMessage = (message, io) => {
  * Connect to Box serial port
  */
 const connectToBox = async (portPath, io, attemptNumber = 1) => {
-  return new Promise((resolve, reject) => {
+  return new Promise(async (resolve, reject) => {
     console.log(
       `[BOX] Connection attempt ${attemptNumber}/${BOX_CONFIG.MAX_RECONNECT_ATTEMPTS} to ${portPath}`
     );
@@ -248,7 +266,11 @@ const connectToBox = async (portPath, io, attemptNumber = 1) => {
         boxPort.close();
       }
 
+      // CRITICAL: Disable HUPCL BEFORE opening port
+      await disableHUPCL(portPath);
+
       // Create new serial port connection
+      // Disable DTR/RTS to prevent Arduino auto-reset
       boxPort = new SerialPort({
         path: portPath,
         baudRate: BOX_CONFIG.BAUD_RATE,
@@ -257,6 +279,10 @@ const connectToBox = async (portPath, io, attemptNumber = 1) => {
         stopBits: 1,
         flowControl: false,
         autoOpen: false,
+        // Prevent Arduino reset on serial open
+        dtr: false,
+        rts: false,
+        hupcl: false,
       });
 
       boxParser = boxPort.pipe(new ReadlineParser({ delimiter: "\n" }));
@@ -265,6 +291,15 @@ const connectToBox = async (portPath, io, attemptNumber = 1) => {
       boxPort.on("open", () => {
         console.log(`[BOX] Serial port ${portPath} opened successfully`);
         isBoxConnected = true;
+
+        // Ensure DTR/RTS remain low after opening
+        boxPort.set({ dtr: false, rts: false }, (err) => {
+          if (err) {
+            console.log("[BOX] Note: Could not set DTR/RTS:", err.message);
+          } else {
+            console.log("[BOX] DTR/RTS disabled - Arduino will NOT reset");
+          }
+        });
 
         updateBoxStatus(
           {
