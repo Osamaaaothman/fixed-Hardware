@@ -104,7 +104,12 @@ const QueuePage = () => {
 
       if (data.status === "started") {
         setIsProcessing(true);
-        setCurrentProgress({ itemId: data.itemId, progress: 0, current: 0, total: 0 });
+        setCurrentProgress({
+          itemId: data.itemId,
+          progress: 0,
+          current: 0,
+          total: 0,
+        });
       } else if (data.status === "progress") {
         setCurrentProgress({
           itemId: data.itemId,
@@ -189,7 +194,7 @@ const QueuePage = () => {
   useEffect(() => {
     fetchQueue();
     checkConnections();
-    
+
     // Check connections every 5 seconds
     const interval = setInterval(checkConnections, 5000);
     return () => clearInterval(interval);
@@ -265,7 +270,7 @@ const QueuePage = () => {
       }
     } catch (error) {
       console.error("Error processing next item:", error);
-      
+
       // Check if error has validation details
       if (error.response?.data?.details) {
         const details = error.response.data.details;
@@ -273,7 +278,9 @@ const QueuePage = () => {
           <div className="flex flex-col gap-2">
             <div className="font-bold">❌ Cannot Start Drawing</div>
             {details.map((detail, idx) => (
-              <div key={idx} className="text-sm">• {detail}</div>
+              <div key={idx} className="text-sm">
+                • {detail}
+              </div>
             ))}
           </div>,
           { duration: 6000 }
@@ -351,16 +358,32 @@ const QueuePage = () => {
 
             {/* Connection Status Indicators */}
             <div className="flex items-center gap-3">
-              <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg ${
-                cncConnected ? 'bg-success/20 text-success' : 'bg-error/20 text-error'
-              }`}>
-                {cncConnected ? <Wifi className="w-4 h-4" /> : <WifiOff className="w-4 h-4" />}
+              <div
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg ${
+                  cncConnected
+                    ? "bg-success/20 text-success"
+                    : "bg-error/20 text-error"
+                }`}
+              >
+                {cncConnected ? (
+                  <Wifi className="w-4 h-4" />
+                ) : (
+                  <WifiOff className="w-4 h-4" />
+                )}
                 <span className="text-xs font-medium">CNC</span>
               </div>
-              <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg ${
-                boxConnected ? 'bg-success/20 text-success' : 'bg-error/20 text-error'
-              }`}>
-                {boxConnected ? <Wifi className="w-4 h-4" /> : <WifiOff className="w-4 h-4" />}
+              <div
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg ${
+                  boxConnected
+                    ? "bg-success/20 text-success"
+                    : "bg-error/20 text-error"
+                }`}
+              >
+                {boxConnected ? (
+                  <Wifi className="w-4 h-4" />
+                ) : (
+                  <WifiOff className="w-4 h-4" />
+                )}
                 <span className="text-xs font-medium">Box</span>
               </div>
             </div>
@@ -395,60 +418,63 @@ const QueuePage = () => {
               </div>
             </div>
           )}
-        </div>
 
-            {/* Action Buttons */}
-            {items.length > 0 && (
-              <div className="flex gap-2 mt-4">
-                <button
-                  onClick={handleProcessNext}
-                  disabled={stats.pending === 0 || isProcessing || !cncConnected || !boxConnected}
-                  className="btn btn-primary gap-2"
-                  title={
-                    !cncConnected || !boxConnected
-                      ? "Both CNC and Box must be connected"
-                      : stats.pending === 0
-                      ? "No pending items"
-                      : "Draw next item"
-                  }
+          {/* Action Buttons */}
+          {items.length > 0 && (
+            <div className="flex gap-2 mt-4">
+              <button
+                onClick={handleProcessNext}
+                disabled={
+                  stats.pending === 0 ||
+                  isProcessing ||
+                  !cncConnected ||
+                  !boxConnected
+                }
+                className="btn btn-primary gap-2"
+                title={
+                  !cncConnected || !boxConnected
+                    ? "Both CNC and Box must be connected"
+                    : stats.pending === 0
+                    ? "No pending items"
+                    : "Draw next item"
+                }
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="w-5 h-5"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
                 >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="w-5 h-5"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <polygon points="5 3 19 12 5 21 5 3" />
-                  </svg>
-                  {isProcessing ? "Drawing..." : "Draw Next"}
-                </button>
-                <button
-                  onClick={handleClear}
-                  disabled={isProcessing}
-                  className="btn btn-ghost gap-2"
+                  <polygon points="5 3 19 12 5 21 5 3" />
+                </svg>
+                {isProcessing ? "Drawing..." : "Draw Next"}
+              </button>
+              <button
+                onClick={handleClear}
+                disabled={isProcessing}
+                className="btn btn-ghost gap-2"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="w-5 h-5"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
                 >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="w-5 h-5"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <polyline points="3 6 5 6 21 6" />
-                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                  </svg>
-                  Clear All
-                </button>
-              </div>
-            )}
-          </div>
+                  <polyline points="3 6 5 6 21 6" />
+                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                </svg>
+                Clear All
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Main Grid Layout */}
@@ -491,24 +517,44 @@ const QueuePage = () => {
               </h3>
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-base-content/70">CNC Connection:</span>
-                  <div className={`flex items-center gap-2 px-2 py-1 rounded ${
-                    cncConnected ? 'bg-success/20 text-success' : 'bg-error/20 text-error'
-                  }`}>
-                    {cncConnected ? <Wifi className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
+                  <span className="text-sm text-base-content/70">
+                    CNC Connection:
+                  </span>
+                  <div
+                    className={`flex items-center gap-2 px-2 py-1 rounded ${
+                      cncConnected
+                        ? "bg-success/20 text-success"
+                        : "bg-error/20 text-error"
+                    }`}
+                  >
+                    {cncConnected ? (
+                      <Wifi className="w-3 h-3" />
+                    ) : (
+                      <WifiOff className="w-3 h-3" />
+                    )}
                     <span className="text-xs font-medium">
-                      {cncConnected ? 'Connected' : 'Disconnected'}
+                      {cncConnected ? "Connected" : "Disconnected"}
                     </span>
                   </div>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-base-content/70">Box Connection:</span>
-                  <div className={`flex items-center gap-2 px-2 py-1 rounded ${
-                    boxConnected ? 'bg-success/20 text-success' : 'bg-error/20 text-error'
-                  }`}>
-                    {boxConnected ? <Wifi className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
+                  <span className="text-sm text-base-content/70">
+                    Box Connection:
+                  </span>
+                  <div
+                    className={`flex items-center gap-2 px-2 py-1 rounded ${
+                      boxConnected
+                        ? "bg-success/20 text-success"
+                        : "bg-error/20 text-error"
+                    }`}
+                  >
+                    {boxConnected ? (
+                      <Wifi className="w-3 h-3" />
+                    ) : (
+                      <WifiOff className="w-3 h-3" />
+                    )}
                     <span className="text-xs font-medium">
-                      {boxConnected ? 'Connected' : 'Disconnected'}
+                      {boxConnected ? "Connected" : "Disconnected"}
                     </span>
                   </div>
                 </div>
@@ -517,8 +563,8 @@ const QueuePage = () => {
                     <p className="text-xs text-warning flex items-start gap-2">
                       <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
                       <span>
-                        Both CNC and Box must be connected before drawing. 
-                        Go to <strong>Status</strong> page to establish connections.
+                        Both CNC and Box must be connected before drawing. Go to{" "}
+                        <strong>Status</strong> page to establish connections.
                       </span>
                     </p>
                   </div>
