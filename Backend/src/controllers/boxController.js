@@ -243,24 +243,157 @@ const parseBoxMessage = (message, io) => {
           lastSoftwareCommand !== "erasing" ||
           erasingNow - lastSoftwareCommandTime > COMMAND_TIMEOUT;
 
-        if (erasingIsHardwareTriggered) {
+        if (erasingIsHardwareTriggered && io) {
           console.log(
-            "[BOX] Hardware erasing button pressed - auto-triggering erasing mode"
+            "[BOX] Hardware erasing button pressed - auto-executing erasing"
           );
+
+          // Emit event for frontend notification
+          io.emit("box:hardware-erase-triggered", {
+            timestamp: new Date().toISOString(),
+            mode: "ERASING",
+          });
+
+          // Auto-execute erasing
           setTimeout(async () => {
             try {
-              // Import erasing controller to trigger execution
+              // Import required modules
               const erasingModule = await import("./erasingController.js");
-              // Note: We can't directly call the router here, so we'll trigger via internal mechanism
-              // The frontend should listen for MODE_ERASING status and auto-trigger
-              console.log(
-                "[BOX] Erasing mode activated via hardware - frontend should handle execution"
+              const { getPersistentPort, getPersistentParser } = await import(
+                "./serialController.js"
               );
+
+              // Get serial port
+              const serialPort = getPersistentPort();
+              const serialParser = getPersistentParser();
+
+              if (!serialPort || !serialPort.isOpen) {
+                console.error("[BOX] Serial port not available for erasing");
+                io.emit("box:hardware-erase-error", {
+                  error: "CNC not connected",
+                  timestamp: new Date().toISOString(),
+                });
+                // Return box to ready mode
+                if (boxPort && boxPort.isOpen) {
+                  boxPort.write("exit_erasing\n");
+                }
+                return;
+              }
+
+              // Generate erasing G-code by calling the internal function
+              // We need to recreate the G-code generation logic here
+              const CNC_WIDTH = 95;
+              const CNC_HEIGHT = 130;
+              const PEN_UP = -2.3;
+              const PEN_DOWN = 0;
+              const FEED_RATE = 3000;
+              const X_POSITION = CNC_WIDTH - 4;
+              const Y_START = 0;
+              const Y_END = CNC_HEIGHT - 20;
+              const Y_STEP = 2;
+
+              const gcode = [];
+              gcode.push("G21");
+              gcode.push("G90");
+              gcode.push(`F${FEED_RATE}`);
+              gcode.push(`G1 Z${PEN_UP}`);
+              gcode.push(`G0 X${X_POSITION} Y${Y_START}`);
+              gcode.push(`G1 Z${PEN_DOWN}`);
+              for (let y = Y_START; y <= Y_END; y += Y_STEP) {
+                gcode.push(`G1 Y${y.toFixed(2)}`);
+              }
+              gcode.push(`G1 Z${PEN_UP}`);
+              gcode.push(`G0 X0 Y0`);
+              gcode.push("M2");
+
+              const gcodeText = gcode.join("\n");
+
+              console.log(`[BOX] Generated erasing G-code, sending to CNC...`);
+
+              // Send G-code via serial (simplified version without SSE)
+              const lines = gcodeText
+                .split("\n")
+                .filter((line) => line.trim() && !line.startsWith(";"));
+
+              let currentLine = 0;
+              let waitingForResponse = false;
+
+              const sendNextLine = () => {
+                if (currentLine >= lines.length) {
+                  console.log("[BOX] Erasing complete!");
+                  io.emit("box:hardware-erase-complete", {
+                    timestamp: new Date().toISOString(),
+                  });
+                  // Wait 1 second then exit erasing mode
+                  setTimeout(() => {
+                    if (boxPort && boxPort.isOpen) {
+                      boxPort.write("exit_erasing\n");
+                    }
+                  }, 1000);
+                  return;
+                }
+
+                if (!waitingForResponse) {
+                  const line = lines[currentLine];
+                  waitingForResponse = true;
+
+                  serialPort.write(line + "\n", (err) => {
+                    if (err) {
+                      console.error("[BOX] Error writing to serial:", err);
+                      io.emit("box:hardware-erase-error", {
+                        error: err.message,
+                        timestamp: new Date().toISOString(),
+                      });
+                      if (boxPort && boxPort.isOpen) {
+                        boxPort.write("exit_erasing\n");
+                      }
+                    }
+                  });
+
+                  console.log(
+                    `[BOX] Erasing: ${currentLine + 1}/${
+                      lines.length
+                    } - ${line}`
+                  );
+                  currentLine++;
+                }
+              };
+
+              // Listen for responses
+              const responseHandler = (data) => {
+                const response = data.trim();
+                if (response === "ok" || response.startsWith("ok")) {
+                  waitingForResponse = false;
+                  sendNextLine();
+                } else if (response.startsWith("error")) {
+                  console.error("[BOX] GRBL error:", response);
+                  waitingForResponse = false;
+                  sendNextLine(); // Continue despite error
+                }
+              };
+
+              serialParser.on("data", responseHandler);
+
+              // Start sending
+              sendNextLine();
+
+              // Cleanup listener after completion (timeout safety)
+              setTimeout(() => {
+                serialParser.removeListener("data", responseHandler);
+              }, 120000); // 2 minutes max
             } catch (error) {
               console.error(
                 "[BOX] Error handling hardware erasing trigger:",
                 error
               );
+              io.emit("box:hardware-erase-error", {
+                error: error.message,
+                timestamp: new Date().toISOString(),
+              });
+              // Return box to ready mode
+              if (boxPort && boxPort.isOpen) {
+                boxPort.write("exit_erasing\n");
+              }
             }
           }, 500);
         }
