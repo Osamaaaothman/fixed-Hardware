@@ -28,20 +28,23 @@ function generateEraseGcode() {
   gcode.push("; Pattern: Vertical sweep at X=" + X_POSITION + "mm");
   gcode.push("G21 ; Set units to millimeters");
   gcode.push("G90 ; Use absolute positioning");
-  gcode.push(`G1 Z${PEN_UP} F${FEED_RATE} ; Pen up`);
+  gcode.push(`F${FEED_RATE} ; Set feed rate`);
+  gcode.push(`G1 Z${PEN_UP} ; Pen up`);
   gcode.push("");
 
   // Move to starting position
   gcode.push("; Move to start position");
-  gcode.push(`G0 X${X_POSITION} Y${Y_START} ; Move to X=${X_POSITION}, Y=0`);
-  gcode.push(`G1 Z${PEN_DOWN} F${FEED_RATE} ; Pen down (eraser touches board)`);
+  gcode.push(
+    `G0 X${X_POSITION} Y${Y_START} ; Rapid move to X=${X_POSITION}, Y=0`
+  );
+  gcode.push(`G1 Z${PEN_DOWN} ; Pen down (eraser touches board)`);
   gcode.push("");
 
   // Sweep from Y=0 to Y=110 in steps of 2mm
   gcode.push("; Erasing sweep");
   let lineCount = 0;
   for (let y = Y_START; y <= Y_END; y += Y_STEP) {
-    gcode.push(`G0 X${X_POSITION} Y${y.toFixed(2)} F${FEED_RATE}`);
+    gcode.push(`G1 Y${y.toFixed(2)} ; Erase at Y=${y.toFixed(2)}`);
     lineCount++;
   }
 
@@ -49,7 +52,7 @@ function generateEraseGcode() {
 
   // Lift pen and return to origin
   gcode.push("; Return to origin");
-  gcode.push(`G1 Z${PEN_UP} F${FEED_RATE} ; Pen up`);
+  gcode.push(`G1 Z${PEN_UP} ; Pen up`);
   gcode.push(`G0 X0 Y0 ; Return to origin`);
   gcode.push("M2 ; End program");
   gcode.push("");
