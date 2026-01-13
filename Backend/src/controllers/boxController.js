@@ -237,31 +237,33 @@ const parseBoxMessage = (message, io) => {
         io
       );
       // Auto-trigger erasing when hardware button is pressed
-      const now = Date.now();
-      const isHardwareTriggered =
-        lastSoftwareCommand !== "erasing" ||
-        now - lastSoftwareCommandTime > COMMAND_TIMEOUT;
+      {
+        const erasingNow = Date.now();
+        const erasingIsHardwareTriggered =
+          lastSoftwareCommand !== "erasing" ||
+          erasingNow - lastSoftwareCommandTime > COMMAND_TIMEOUT;
 
-      if (isHardwareTriggered) {
-        console.log(
-          "[BOX] Hardware erasing button pressed - auto-triggering erasing mode"
-        );
-        setTimeout(async () => {
-          try {
-            // Import erasing controller to trigger execution
-            const erasingModule = await import("./erasingController.js");
-            // Note: We can't directly call the router here, so we'll trigger via internal mechanism
-            // The frontend should listen for MODE_ERASING status and auto-trigger
-            console.log(
-              "[BOX] Erasing mode activated via hardware - frontend should handle execution"
-            );
-          } catch (error) {
-            console.error(
-              "[BOX] Error handling hardware erasing trigger:",
-              error
-            );
-          }
-        }, 500);
+        if (erasingIsHardwareTriggered) {
+          console.log(
+            "[BOX] Hardware erasing button pressed - auto-triggering erasing mode"
+          );
+          setTimeout(async () => {
+            try {
+              // Import erasing controller to trigger execution
+              const erasingModule = await import("./erasingController.js");
+              // Note: We can't directly call the router here, so we'll trigger via internal mechanism
+              // The frontend should listen for MODE_ERASING status and auto-trigger
+              console.log(
+                "[BOX] Erasing mode activated via hardware - frontend should handle execution"
+              );
+            } catch (error) {
+              console.error(
+                "[BOX] Error handling hardware erasing trigger:",
+                error
+              );
+            }
+          }, 500);
+        }
       }
       break;
 
