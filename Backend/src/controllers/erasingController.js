@@ -44,7 +44,7 @@ function generateEraseGcode() {
   gcode.push("; Erasing sweep");
   let lineCount = 0;
   for (let y = Y_START + Y_STEP; y <= Y_END; y += Y_STEP) {
-    gcode.push(`G1 Y${y.toFixed(2)} ; Erase at Y=${y.toFixed(2)}`);
+    gcode.push(`G1 X${X_POSITION} Y${y.toFixed(2)} ; Erase at Y=${y.toFixed(2)}`);
     lineCount++;
   }
 

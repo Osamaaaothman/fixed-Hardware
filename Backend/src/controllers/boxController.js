@@ -300,7 +300,7 @@ const parseBoxMessage = (message, io) => {
               gcode.push(`G0 X${X_POSITION} Y${Y_START}`);
               gcode.push(`G1 Z${PEN_DOWN}`);
               for (let y = Y_START + Y_STEP; y <= Y_END; y += Y_STEP) {
-                gcode.push(`G1 Y${y.toFixed(2)}`);
+                gcode.push(`G1 X${X_POSITION} Y${y.toFixed(2)}`);
               }
               gcode.push(`G1 Z${PEN_UP}`);
               gcode.push(`G0 X0 Y0`);
