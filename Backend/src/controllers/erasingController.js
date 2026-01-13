@@ -25,7 +25,7 @@ function generateEraseGcode() {
   // Header
   gcode.push("; Erasing Mode G-code");
   gcode.push("; Generated: " + new Date().toISOString());
-  gcode.push("; Pattern: Vertical sweep at X=" + X_POSITION + "mm");
+  gcode.push("; Pattern: Horizontal zigzag from X=0 to X=91, Y=0 to Y=110");
   gcode.push("G21 ; Set units to millimeters");
   gcode.push("G90 ; Use absolute positioning");
   gcode.push(`F${FEED_RATE} ; Set feed rate`);
@@ -34,17 +34,26 @@ function generateEraseGcode() {
 
   // Move to starting position
   gcode.push("; Move to start position");
-  gcode.push(
-    `G0 X${X_POSITION} Y${Y_START} ; Rapid move to X=${X_POSITION}, Y=0`
-  );
+  gcode.push(`G0 X0 Y${Y_START} ; Move to origin`);
   gcode.push(`G1 Z${PEN_DOWN} ; Pen down (eraser touches board)`);
   gcode.push("");
 
-  // Sweep from Y=2 to Y=110 in steps of 2mm (already at Y=0)
-  gcode.push("; Erasing sweep");
+  // Horizontal zigzag pattern - erase entire board
+  gcode.push("; Erasing sweep - horizontal zigzag");
   let lineCount = 0;
-  for (let y = Y_START + Y_STEP; y <= Y_END; y += Y_STEP) {
-    gcode.push(`G1 X${X_POSITION} Y${y.toFixed(2)} ; Erase at Y=${y.toFixed(2)}`);
+  let direction = 1; // 1 = move right, -1 = move left
+
+  for (let y = Y_START; y <= Y_END; y += Y_STEP) {
+    if (direction === 1) {
+      // Move right
+      gcode.push(
+        `G1 X${X_POSITION} Y${y.toFixed(2)} ; Erase right at Y=${y.toFixed(2)}`
+      );
+    } else {
+      // Move left
+      gcode.push(`G1 X0 Y${y.toFixed(2)} ; Erase left at Y=${y.toFixed(2)}`);
+    }
+    direction *= -1; // Alternate direction
     lineCount++;
   }
 
