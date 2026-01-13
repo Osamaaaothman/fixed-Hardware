@@ -286,7 +286,7 @@ const parseBoxMessage = (message, io) => {
               const CNC_HEIGHT = 130;
               const PEN_UP = -2.3;
               const PEN_DOWN = 0;
-              const FEED_RATE = 6000;
+              const FEED_RATE = 8000;
               const X_POSITION = CNC_WIDTH - 4;
               const Y_START = 0;
               const Y_END = CNC_HEIGHT - 20;

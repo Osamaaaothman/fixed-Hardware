@@ -7,7 +7,7 @@ const CNC_WIDTH = 95; // mm
 const CNC_HEIGHT = 130; // mm
 const PEN_UP = -2.3;
 const PEN_DOWN = 0;
-const FEED_RATE = 6000; // Fast movement for erasing
+const FEED_RATE = 8000; // Fast movement for erasing
 
 /**
  * Generate G-code for erasing the entire board

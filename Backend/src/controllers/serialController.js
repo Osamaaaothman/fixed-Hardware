@@ -334,11 +334,12 @@ function sendGcodeLinesSSE(
       try {
         if (isErasingMode) {
           console.log(
-            "[SERIAL] Waiting 1 second before exiting ERASING mode..."
+            "[SERIAL] ⏳ Waiting 1 second before exiting ERASING mode..."
           );
           await new Promise((resolve) => setTimeout(resolve, 1000));
-          console.log("[SERIAL] Exiting Box from ERASING mode to MENU");
+          console.log("[SERIAL] 📤 Sending exit_erasing command to Box");
           boxPort.write("exit_erasing\n");
+          console.log("[SERIAL] ✅ exit_erasing command sent successfully");
         } else {
           console.log("[SERIAL] Exiting Box from WRITING mode to MENU");
           boxPort.write("exit_writing\n");
