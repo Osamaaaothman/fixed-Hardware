@@ -326,6 +326,10 @@ function sendGcodeLinesSSE(
       try {
         console.log("[SERIAL] Returning Box to READY mode");
         boxPort.write("ready\n");
+
+        // Wait a moment for the command to be processed
+        await new Promise((resolve) => setTimeout(resolve, 300));
+        console.log("[SERIAL] Box should now be in READY/Menu mode");
       } catch (boxError) {
         console.error(
           "[SERIAL] Warning: Failed to return Box to ready mode:",
@@ -430,7 +434,8 @@ function sendGcodeLinesSSE(
     );
 
     if (currentLine >= lines.length) {
-      // All lines sent
+      // CRITICAL: Set cancelled flag IMMEDIATELY to prevent re-entry from parser
+      isCancelled = true;
       console.log(`[SERIAL] ✓ All lines sent, completing...`);
       const endTime = Date.now();
       const totalTime = ((endTime - startTime) / 1000).toFixed(2);
