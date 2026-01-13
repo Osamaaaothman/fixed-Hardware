@@ -40,10 +40,10 @@ function generateEraseGcode() {
   gcode.push(`G1 Z${PEN_DOWN} ; Pen down (eraser touches board)`);
   gcode.push("");
 
-  // Sweep from Y=0 to Y=110 in steps of 2mm
+  // Sweep from Y=2 to Y=110 in steps of 2mm (already at Y=0)
   gcode.push("; Erasing sweep");
   let lineCount = 0;
-  for (let y = Y_START; y <= Y_END; y += Y_STEP) {
+  for (let y = Y_START + Y_STEP; y <= Y_END; y += Y_STEP) {
     gcode.push(`G1 Y${y.toFixed(2)} ; Erase at Y=${y.toFixed(2)}`);
     lineCount++;
   }
