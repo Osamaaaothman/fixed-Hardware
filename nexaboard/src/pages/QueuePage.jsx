@@ -422,6 +422,7 @@ const QueuePage = () => {
           {/* Action Buttons */}
           {items.length > 0 && (
             <div className="flex gap-2 mt-4">
+              {/* COMMENTED OUT - May cause drawing issues
               <button
                 onClick={handleProcessNext}
                 disabled={
@@ -453,6 +454,7 @@ const QueuePage = () => {
                 </svg>
                 {isProcessing ? "Drawing..." : "Draw Next"}
               </button>
+              */}
               <button
                 onClick={handleClear}
                 disabled={isProcessing}
