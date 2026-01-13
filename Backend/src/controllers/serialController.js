@@ -88,7 +88,44 @@ router.post("/send", async (req, res) => {
     res.write(`data: ${JSON.stringify(data)}\n\n`);
   };
 
+  // Import box controller to handle Box mode
+  let boxModule = null;
+  let boxPort = null;
+  let boxModeChanged = false;
   try {
+    boxModule = await import("./boxController.js");
+    boxPort = boxModule?.getBoxPort?.() || null;
+  } catch (err) {
+    console.warn("[SERIAL] Could not import box controller:", err.message);
+  }
+
+  try {
+    // Switch Box to WRITING mode before starting
+    if (boxPort && boxPort.isOpen) {
+      try {
+        console.log("[SERIAL] Switching Box to WRITING mode");
+        boxPort.write("writing\n");
+        boxModeChanged = true;
+
+        const io = req.app.get("io");
+        if (io) {
+          io.emit("box:mode-changed", {
+            mode: "WRITING",
+            reason: "draw-now",
+            timestamp: Date.now(),
+          });
+        }
+
+        // Wait for Box to switch modes
+        await new Promise((resolve) => setTimeout(resolve, 500));
+      } catch (boxError) {
+        console.error(
+          "[SERIAL] Warning: Failed to set Box to writing mode:",
+          boxError
+        );
+      }
+    }
+
     // PREFER PERSISTENT CONNECTION IF AVAILABLE
     if (
       usePersistent &&
@@ -124,7 +161,9 @@ router.post("/send", async (req, res) => {
         persistentParser,
         startTime,
         res,
-        sendEvent
+        sendEvent,
+        boxPort,
+        boxModeChanged
       );
       return; // Exit early
     }
@@ -201,7 +240,16 @@ router.post("/send", async (req, res) => {
           message: "GRBL ready, starting transmission...",
           timestamp: Date.now() - startTime,
         });
-        sendGcodeLinesSSE(gcode, activePort, parser, startTime, res, sendEvent);
+        sendGcodeLinesSSE(
+          gcode,
+          activePort,
+          parser,
+          startTime,
+          res,
+          sendEvent,
+          boxPort,
+          boxModeChanged
+        );
       }, 3000); // Increased to 3 seconds for better stability
     });
 
@@ -245,11 +293,22 @@ router.post("/send", async (req, res) => {
 /**
  * Send G-code lines one by one with SSE updates
  */
-function sendGcodeLinesSSE(gcode, port, parser, startTime, res, sendEvent) {
+function sendGcodeLinesSSE(
+  gcode,
+  port,
+  parser,
+  startTime,
+  res,
+  sendEvent,
+  boxPort = null,
+  boxModeChanged = false
+) {
   const lines = gcode
     .split("\n")
     .map((line) => line.trim())
     .filter((line) => line && !line.startsWith(";"));
+
+  console.log(`[SERIAL] Starting to send ${lines.length} G-code lines`);
 
   let currentLine = 0;
   let waitingForResponse = false;
@@ -260,6 +319,21 @@ function sendGcodeLinesSSE(gcode, port, parser, startTime, res, sendEvent) {
   let consecutiveTimeouts = 0; // Track consecutive timeouts
   const MAX_CONSECUTIVE_TIMEOUTS = 5; // Stop after 5 consecutive timeouts
   let isCancelled = false; // Track if transmission was cancelled
+
+  // Helper to return Box to ready mode
+  const returnBoxToReady = async () => {
+    if (boxPort && boxPort.isOpen && boxModeChanged) {
+      try {
+        console.log("[SERIAL] Returning Box to READY mode");
+        boxPort.write("ready\n");
+      } catch (boxError) {
+        console.error(
+          "[SERIAL] Warning: Failed to return Box to ready mode:",
+          boxError
+        );
+      }
+    }
+  };
 
   parser.on("data", (data) => {
     if (isCancelled) return; // Ignore responses after cancellation
@@ -346,14 +420,24 @@ function sendGcodeLinesSSE(gcode, port, parser, startTime, res, sendEvent) {
   });
 
   function sendNextLine() {
-    if (isCancelled) return; // Stop if cancelled
+    if (isCancelled) {
+      console.log(`[SERIAL] sendNextLine cancelled at line ${currentLine}`);
+      return;
+    }
+
+    console.log(
+      `[SERIAL] sendNextLine called - currentLine: ${currentLine}, total: ${lines.length}`
+    );
 
     if (currentLine >= lines.length) {
       // All lines sent
+      console.log(`[SERIAL] ✓ All lines sent, completing...`);
       const endTime = Date.now();
       const totalTime = ((endTime - startTime) / 1000).toFixed(2);
 
-      console.log(`G-code transmission complete in ${totalTime} seconds`);
+      console.log(
+        `[SERIAL] G-code transmission complete in ${totalTime} seconds`
+      );
 
       isDrawing = false;
 
@@ -378,16 +462,19 @@ function sendGcodeLinesSSE(gcode, port, parser, startTime, res, sendEvent) {
         responseTimeout = null;
       }
 
-      // Close port after completion ONLY if using temporary connection
-      setTimeout(() => {
-        if (port && port.isOpen && port !== persistentPort) {
-          console.log("[SERIAL] Closing temporary connection after drawing");
-          port.close();
-        } else if (port === persistentPort) {
-          console.log("[SERIAL] Keeping persistent connection open");
-        }
-        res.end();
-      }, 1000);
+      // Return Box to ready mode
+      returnBoxToReady().then(() => {
+        // Close port after completion ONLY if using temporary connection
+        setTimeout(() => {
+          if (port && port.isOpen && port !== persistentPort) {
+            console.log("[SERIAL] Closing temporary connection after drawing");
+            port.close();
+          } else if (port === persistentPort) {
+            console.log("[SERIAL] Keeping persistent connection open");
+          }
+          res.end();
+        }, 1000);
+      });
 
       return;
     }
@@ -427,7 +514,11 @@ function sendGcodeLinesSSE(gcode, port, parser, startTime, res, sendEvent) {
             message: err.message,
             timestamp: Date.now() - startTime,
           });
-          res.end();
+
+          // Return Box to ready mode before ending
+          returnBoxToReady().then(() => {
+            res.end();
+          });
         } else {
           // Ensure data is actually transmitted before continuing
           port.drain((drainErr) => {
@@ -458,10 +549,14 @@ function sendGcodeLinesSSE(gcode, port, parser, startTime, res, sendEvent) {
             message: `Critical: ${MAX_CONSECUTIVE_TIMEOUTS} consecutive timeouts - Arduino may be frozen. Check hardware!`,
             timestamp: Date.now() - startTime,
           });
-          if (port && port.isOpen) {
-            port.close();
-          }
-          res.end();
+
+          // Return Box to ready mode before closing
+          returnBoxToReady().then(() => {
+            if (port && port.isOpen) {
+              port.close();
+            }
+            res.end();
+          });
           return;
         }
 
