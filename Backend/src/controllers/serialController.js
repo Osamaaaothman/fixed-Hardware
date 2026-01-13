@@ -63,6 +63,7 @@ router.post("/send", async (req, res) => {
     port = "/dev/ttyUSB0",
     baudRate = 115200,
     usePersistent = true,
+    isErasingMode = false,
   } = req.body;
 
   if (!gcode) {
@@ -100,18 +101,20 @@ router.post("/send", async (req, res) => {
   }
 
   try {
-    // Switch Box to WRITING mode before starting
+    // Switch Box to appropriate mode before starting
     if (boxPort && boxPort.isOpen) {
       try {
-        console.log("[SERIAL] Switching Box to WRITING mode");
-        boxPort.write("writing\n");
+        const mode = isErasingMode ? "ERASING" : "WRITING";
+        const command = isErasingMode ? "erasing" : "writing";
+        console.log(`[SERIAL] Switching Box to ${mode} mode`);
+        boxPort.write(`${command}\n`);
         boxModeChanged = true;
 
         const io = req.app.get("io");
         if (io) {
           io.emit("box:mode-changed", {
-            mode: "WRITING",
-            reason: "draw-now",
+            mode: mode,
+            reason: isErasingMode ? "erase-now" : "draw-now",
             timestamp: Date.now(),
           });
         }
@@ -120,7 +123,9 @@ router.post("/send", async (req, res) => {
         await new Promise((resolve) => setTimeout(resolve, 500));
       } catch (boxError) {
         console.error(
-          "[SERIAL] Warning: Failed to set Box to writing mode:",
+          `[SERIAL] Warning: Failed to set Box to ${
+            isErasingMode ? "erasing" : "writing"
+          } mode:`,
           boxError
         );
       }
@@ -163,7 +168,8 @@ router.post("/send", async (req, res) => {
         res,
         sendEvent,
         boxPort,
-        boxModeChanged
+        boxModeChanged,
+        isErasingMode
       );
       return; // Exit early
     }
@@ -248,7 +254,8 @@ router.post("/send", async (req, res) => {
           res,
           sendEvent,
           boxPort,
-          boxModeChanged
+          boxModeChanged,
+          isErasingMode
         );
       }, 3000); // Increased to 3 seconds for better stability
     });
@@ -301,7 +308,8 @@ function sendGcodeLinesSSE(
   res,
   sendEvent,
   boxPort = null,
-  boxModeChanged = false
+  boxModeChanged = false,
+  isErasingMode = false
 ) {
   const lines = gcode
     .split("\n")
@@ -321,20 +329,26 @@ function sendGcodeLinesSSE(
   let isCancelled = false; // Track if transmission was cancelled
 
   // Helper to return Box to ready mode
-  const returnBoxToReady = async () => {
+  const returnBoxToReady = async (isErasingMode = false) => {
     if (boxPort && boxPort.isOpen && boxModeChanged) {
       try {
-        console.log("[SERIAL] Exiting Box from WRITING mode to MENU");
-        boxPort.write("exit_writing\n");
+        if (isErasingMode) {
+          console.log(
+            "[SERIAL] Waiting 1 second before exiting ERASING mode..."
+          );
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+          console.log("[SERIAL] Exiting Box from ERASING mode to MENU");
+          boxPort.write("exit_erasing\n");
+        } else {
+          console.log("[SERIAL] Exiting Box from WRITING mode to MENU");
+          boxPort.write("exit_writing\n");
+        }
 
         // Wait a moment for the command to be processed
         await new Promise((resolve) => setTimeout(resolve, 300));
         console.log("[SERIAL] Box should now be back in Menu mode");
       } catch (boxError) {
-        console.error(
-          "[SERIAL] Warning: Failed to exit Box writing mode:",
-          boxError
-        );
+        console.error("[SERIAL] Warning: Failed to exit Box mode:", boxError);
       }
     }
   };
@@ -468,7 +482,7 @@ function sendGcodeLinesSSE(
       }
 
       // Return Box to ready mode
-      returnBoxToReady().then(() => {
+      returnBoxToReady(isErasingMode).then(() => {
         // Close port after completion ONLY if using temporary connection
         setTimeout(() => {
           if (port && port.isOpen && port !== persistentPort) {
@@ -521,7 +535,7 @@ function sendGcodeLinesSSE(
           });
 
           // Return Box to ready mode before ending
-          returnBoxToReady().then(() => {
+          returnBoxToReady(isErasingMode).then(() => {
             res.end();
           });
         } else {
@@ -556,7 +570,7 @@ function sendGcodeLinesSSE(
           });
 
           // Return Box to ready mode before closing
-          returnBoxToReady().then(() => {
+          returnBoxToReady(isErasingMode).then(() => {
             if (port && port.isOpen) {
               port.close();
             }

@@ -6,6 +6,7 @@ import QueueList from "../components/queue/QueueList";
 import QueueControls from "../components/queue/QueueControls";
 import RecoveryButton from "../components/RecoveryButton";
 import SerialLogModal from "../components/SerialLogModal";
+import EraseButton from "../components/EraseButton";
 import { SOCKET_CONFIG, SERIAL_CONFIG } from "../config/api.config.js";
 import {
   getQueue,
@@ -455,6 +456,10 @@ const QueuePage = () => {
                 {isProcessing ? "Drawing..." : "Draw Next"}
               </button>
               */}
+              
+              {/* Erase Board Button */}
+              <EraseButton disabled={!cncConnected || !boxConnected} />
+              
               <button
                 onClick={handleClear}
                 disabled={isProcessing}

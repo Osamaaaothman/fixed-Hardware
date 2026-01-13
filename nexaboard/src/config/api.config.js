@@ -22,6 +22,7 @@ export const API_CONFIG = {
       SYSTEM_UNLOCK: `${this.BASE_URL}/api/system/unlock`,
       SYSTEM_STATUS: `${this.BASE_URL}/api/system/status`,
       BOX: `${this.BASE_URL}/api/box`,
+      ERASING: `${this.BASE_URL}/api/erasing`,
     };
   },
 };
