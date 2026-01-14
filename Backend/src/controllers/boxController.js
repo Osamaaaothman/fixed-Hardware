@@ -164,7 +164,9 @@ const parseBoxMessage = (message, io) => {
             const hasPending = items.some((item) => item.status === "pending");
 
             if (!hasPending) {
-              console.log("[BOX] Queue is empty - showing queue_empty animation");
+              console.log(
+                "[BOX] Queue is empty - showing queue_empty animation"
+              );
               io.emit("box:hardware-draw-error", {
                 error: "No pending items in queue",
                 timestamp: new Date().toISOString(),
@@ -179,7 +181,9 @@ const parseBoxMessage = (message, io) => {
             }
 
             // Queue has items - proceed with normal drawing
-            console.log("[BOX] Queue has pending items - starting queue processing");
+            console.log(
+              "[BOX] Queue has pending items - starting queue processing"
+            );
 
             const { startQueueProcessing } = await import(
               "../services/queueProcessor.js"
@@ -581,6 +585,14 @@ const connectToBox = async (portPath, io, attemptNumber = 1) => {
         if (io) {
           io.emit("box:connected", { port: portPath });
         }
+
+        // Request current status from Box after connection
+        setTimeout(() => {
+          if (boxPort && boxPort.isOpen) {
+            console.log("[BOX] Requesting current status from Box...");
+            boxPort.write("sync\n");
+          }
+        }, 1500); // Wait 1.5s for Arduino to be ready
 
         resolve({ success: true, port: portPath });
       });
