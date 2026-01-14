@@ -1,4 +1,4 @@
-import { API_CONFIG } from "../config/api.config.js";
+import { API_CONFIG, CAMERA_CONFIG } from "../config/api.config.js";
 
 const API_BASE_URL = API_CONFIG.BASE_URL;
 
@@ -7,7 +7,7 @@ const API_BASE_URL = API_CONFIG.BASE_URL;
  * @returns {string} ESP32 camera stream URL
  */
 export function getStreamUrl() {
-  return "http://192.168.1.11:81/stream";
+  return CAMERA_CONFIG.STREAM_URL;
 }
 
 /**

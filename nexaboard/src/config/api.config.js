@@ -44,6 +44,14 @@ export const SOCKET_CONFIG = {
   SERVER_URL: API_CONFIG.BASE_URL,
 };
 
+// ESP32 Camera Configuration
+// ⚠️ IMPORTANT: Change this when your ESP cam IP changes
+export const CAMERA_CONFIG = {
+  BASE_URL: "http://192.168.1.12",
+  STREAM_URL: "http://192.168.1.12:81/stream",
+  CAPTURE_URL: "http://192.168.1.12/capture",
+};
+
 // Export convenience getters
 export const getApiUrl = (endpoint) => {
   return API_CONFIG.ENDPOINTS[endpoint] || API_CONFIG.BASE_URL;

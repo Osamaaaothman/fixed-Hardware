@@ -4,6 +4,10 @@ import fs from "fs";
 import { fileURLToPath } from "url";
 import fetch from "node-fetch";
 import { v4 as uuidv4 } from "uuid";
+import {
+  ESP32_STREAM_URL,
+  ESP32_CAPTURE_URL,
+} from "../config/camera.config.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -23,9 +27,8 @@ if (!fs.existsSync(capturesDataFile)) {
   fs.writeFileSync(capturesDataFile, JSON.stringify({ captures: [] }, null, 2));
 }
 
-// ESP32 Camera URLs
-const ESP32_STREAM_URL = "http://192.168.1.11:81/stream";
-const ESP32_CAPTURE_URL = "http://192.168.1.11/capture";
+// ESP32 Camera URLs are imported from config/camera.config.js
+// To change the ESP cam IP, edit: Backend/src/config/camera.config.js
 
 /**
  * Helper: Read captures data
@@ -122,17 +125,17 @@ router.post("/capture", async (req, res) => {
     });
   } catch (error) {
     console.error("[CAMERA] Capture error:", error);
-    
+
     // Provide more detailed error messages
     let errorMessage = "Failed to capture image from camera";
-    if (error.code === 'ECONNREFUSED') {
+    if (error.code === "ECONNREFUSED") {
       errorMessage = `Camera not reachable at ${ESP32_CAPTURE_URL}. Please check camera connection.`;
-    } else if (error.code === 'ETIMEDOUT') {
+    } else if (error.code === "ETIMEDOUT") {
       errorMessage = `Camera timeout at ${ESP32_CAPTURE_URL}. Camera may be busy or offline.`;
     } else if (error.message) {
       errorMessage = error.message;
     }
-    
+
     res.status(500).json({
       success: false,
       message: errorMessage,
@@ -147,7 +150,7 @@ router.post("/capture", async (req, res) => {
 router.get("/captures", (req, res) => {
   try {
     const data = readCapturesData();
-    console.log("osama152")
+    console.log("osama152");
 
     res.json({ captures: data.captures || [] });
   } catch (error) {
