@@ -157,7 +157,7 @@ const parseBoxMessage = (message, io) => {
 
             if (!hasPending) {
               console.log(
-                "[BOX] Queue is empty - showing queue_empty animation directly"
+                "[BOX] Queue is empty - exiting writing mode and showing queue_empty"
               );
 
               // Update status to QUEUE_EMPTY mode
@@ -173,9 +173,17 @@ const parseBoxMessage = (message, io) => {
                 error: "No pending items in queue",
                 timestamp: new Date().toISOString(),
               });
-              // Don't enter writing mode - show queue_empty directly
+
+              // CRITICAL: Exit writing mode FIRST, then show queue_empty
               if (boxPort && boxPort.isOpen) {
+                // Step 1: Exit the writingMode() loop
+                boxPort.write("exit_writing\n");
+                console.log("[BOX] Sent exit_writing command");
+                // Step 2: Wait for Arduino to exit the loop
+                await new Promise((resolve) => setTimeout(resolve, 300));
+                // Step 3: Now show queue_empty animation
                 boxPort.write("queue_empty\n");
+                console.log("[BOX] Sent queue_empty command");
               }
               return;
             }
@@ -486,7 +494,7 @@ const parseBoxMessage = (message, io) => {
           timestamp: new Date().toISOString(),
           source: "hardware_keypad",
         });
-        
+
         // Exit screenshot mode after a short delay (1 second)
         setTimeout(() => {
           if (boxPort && boxPort.isOpen) {
