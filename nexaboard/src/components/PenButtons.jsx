@@ -1,7 +1,7 @@
 import { Play, Plus } from "lucide-react";
 import { useState } from "react";
 import { executePen, addPenToQueue } from "../api/penApi";
-import { toast } from "react-hot-toast";
+import { toast } from "sonner";
 
 const PenButtons = ({ onQueueUpdate }) => {
   const [executing, setExecuting] = useState(null);
