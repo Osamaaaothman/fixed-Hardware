@@ -8,6 +8,7 @@ import GcodeViewerPage from "./pages/GcodeViewerPage";
 import QueuePage from "./pages/QueuePage";
 import LiveCamPage from "./pages/LiveCamPage";
 import LockModal from "./components/LockModal";
+import InstallPWA from "./components/InstallPWA";
 import { API_CONFIG } from "./config/api.config";
 
 export default function App() {
@@ -116,6 +117,9 @@ export default function App() {
         onClose={() => setIsLockModalOpen(false)}
         onLockStatusChange={setIsSystemLocked}
       />
+
+      {/* PWA Install Prompt */}
+      <InstallPWA />
     </div>
   );
 }
