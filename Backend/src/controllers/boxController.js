@@ -145,7 +145,7 @@ const parseBoxMessage = (message, io) => {
 
       // If hardware button pressed, auto-start queue drawing
       if (isHardwareTriggered && io) {
-        console.log("[BOX] Hardware draw button pressed - auto-starting queue");
+        console.log("[BOX] Hardware draw button pressed - checking queue");
 
         // Emit event for frontend notification
         io.emit("box:hardware-draw-triggered", {
@@ -153,16 +153,10 @@ const parseBoxMessage = (message, io) => {
           mode: "WRITING",
         });
 
-        // Auto-start queue processing
-        setTimeout(async () => {
+        // Check queue IMMEDIATELY before entering writing mode
+        (async () => {
           try {
             // Import required modules
-            const { startQueueProcessing } = await import(
-              "../services/queueProcessor.js"
-            );
-            const { getPersistentPort, getPersistentParser } = await import(
-              "./serialController.js"
-            );
             const { nexaboard } = await import("../../Data.js");
 
             // Check if queue has pending items
@@ -170,19 +164,29 @@ const parseBoxMessage = (message, io) => {
             const hasPending = items.some((item) => item.status === "pending");
 
             if (!hasPending) {
-              console.log("[BOX] No pending items in queue for hardware draw");
+              console.log("[BOX] Queue is empty - showing queue_empty animation");
               io.emit("box:hardware-draw-error", {
                 error: "No pending items in queue",
                 timestamp: new Date().toISOString(),
               });
-              // Exit writing mode first, then show queue_empty animation
+              // Exit writing mode immediately and show queue_empty
               if (boxPort && boxPort.isOpen) {
                 boxPort.write("exit_writing\n");
-                await new Promise((resolve) => setTimeout(resolve, 200));
+                await new Promise((resolve) => setTimeout(resolve, 300));
                 boxPort.write("queue_empty\n");
               }
               return;
             }
+
+            // Queue has items - proceed with normal drawing
+            console.log("[BOX] Queue has pending items - starting queue processing");
+
+            const { startQueueProcessing } = await import(
+              "../services/queueProcessor.js"
+            );
+            const { getPersistentPort, getPersistentParser } = await import(
+              "./serialController.js"
+            );
 
             // Get persistent connections
             const persistentPort = getPersistentPort();
@@ -197,7 +201,7 @@ const parseBoxMessage = (message, io) => {
               });
               // Return box to ready mode
               if (boxPort && boxPort.isOpen) {
-                boxPort.write("ready\n");
+                boxPort.write("exit_writing\n");
               }
               return;
             }
@@ -220,7 +224,7 @@ const parseBoxMessage = (message, io) => {
               timestamp: new Date().toISOString(),
             });
           }
-        }, 500); // Small delay to ensure mode switch completed
+        })();
       }
       break;
 
