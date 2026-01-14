@@ -1,35 +1,36 @@
-const CACHE_NAME = 'nexaboard-v1';
+const CACHE_NAME = "nexaboard-v1";
 const urlsToCache = [
-  '/',
-  '/index.html',
-  '/manifest.json',
-  '/icon-192.png',
-  '/icon-512.png'
+  "/",
+  "/index.html",
+  "/manifest.json",
+  "/icon-192.png",
+  "/icon-512.png",
 ];
 
 // Install event - cache assets
-self.addEventListener('install', (event) => {
+self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME)
+    caches
+      .open(CACHE_NAME)
       .then((cache) => {
-        console.log('Opened cache');
+        console.log("Opened cache");
         return cache.addAll(urlsToCache);
       })
       .catch((err) => {
-        console.error('Cache failed:', err);
+        console.error("Cache failed:", err);
       })
   );
   self.skipWaiting();
 });
 
 // Activate event - clean up old caches
-self.addEventListener('activate', (event) => {
+self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       return Promise.all(
         cacheNames.map((cacheName) => {
           if (cacheName !== CACHE_NAME) {
-            console.log('Deleting old cache:', cacheName);
+            console.log("Deleting old cache:", cacheName);
             return caches.delete(cacheName);
           }
         })
@@ -40,59 +41,63 @@ self.addEventListener('activate', (event) => {
 });
 
 // Fetch event - serve from cache, fallback to network
-self.addEventListener('fetch', (event) => {
+self.addEventListener("fetch", (event) => {
   // Skip non-GET requests
-  if (event.request.method !== 'GET') {
+  if (event.request.method !== "GET") {
     return;
   }
 
   // Skip API calls (let them go to network)
-  if (event.request.url.includes('/api/')) {
+  if (event.request.url.includes("/api/")) {
     return;
   }
 
   // Skip WebSocket connections
-  if (event.request.url.includes('socket.io')) {
+  if (event.request.url.includes("socket.io")) {
     return;
   }
 
   event.respondWith(
-    caches.match(event.request)
-      .then((response) => {
-        // Cache hit - return response
-        if (response) {
-          return response;
-        }
+    caches.match(event.request).then((response) => {
+      // Cache hit - return response
+      if (response) {
+        return response;
+      }
 
-        // Clone the request
-        const fetchRequest = event.request.clone();
+      // Clone the request
+      const fetchRequest = event.request.clone();
 
-        return fetch(fetchRequest).then((response) => {
+      return fetch(fetchRequest)
+        .then((response) => {
           // Check if valid response
-          if (!response || response.status !== 200 || response.type !== 'basic') {
+          if (
+            !response ||
+            response.status !== 200 ||
+            response.type !== "basic"
+          ) {
             return response;
           }
 
           // Clone the response
           const responseToCache = response.clone();
 
-          caches.open(CACHE_NAME)
-            .then((cache) => {
-              cache.put(event.request, responseToCache);
-            });
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(event.request, responseToCache);
+          });
 
           return response;
-        }).catch(() => {
+        })
+        .catch(() => {
           // Network failed, return offline page if available
-          return caches.match('/index.html');
+          return caches.match("/index.html");
         });
-      })
+    })
   );
 });
 
 // Handle messages from client
-self.addEventListener('message', (event) => {
-  if (event.data && event.data.type === 'SKIP_WAITING') {
+self.addEventListener("message", (event) => {
+  if (event.data && event.data.type === "SKIP_WAITING") {
     self.skipWaiting();
   }
 });
