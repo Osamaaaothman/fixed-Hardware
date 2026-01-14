@@ -1190,12 +1190,8 @@ private:
     
     case '4':
       if (currentPage == 2) {
-        sendStatusToServer("MODE_WRITING");
-        exitModeRequested = false;
-        currentMode = MODE_WRITING;
-        modes.writingMode(exitModeRequested);
-        currentMode = MODE_NONE;
-        display.showModeMenu(currentPage);
+        sendStatusToServer("DRAWING_BUTTON_PRESSED");
+        // Wait for server to respond with "writing" or "queue_empty"
       }
       break;
 

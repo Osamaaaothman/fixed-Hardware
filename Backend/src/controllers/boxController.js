@@ -129,38 +129,25 @@ const parseBoxMessage = (message, io) => {
       );
       break;
 
-    case "MODE_WRITING":
-      const now = Date.now();
-      const isHardwareTriggered =
-        lastSoftwareCommand !== "writing" ||
-        now - lastSoftwareCommandTime > COMMAND_TIMEOUT;
+    case "DRAWING_BUTTON_PRESSED":
+      // Hardware draw button pressed - check queue FIRST, then respond
+      console.log("[BOX] Hardware draw button pressed - checking queue");
 
-      // If hardware button pressed, check queue BEFORE entering writing mode
-      if (isHardwareTriggered && io) {
-        console.log("[BOX] Hardware draw button pressed - checking queue");
-
-        // Emit event for frontend notification
+      if (io) {
         io.emit("box:hardware-draw-triggered", {
           timestamp: new Date().toISOString(),
           mode: "WRITING",
         });
 
-        // Check queue IMMEDIATELY - don't enter writing mode if empty
         (async () => {
           try {
-            // Import required modules
             const { nexaboard } = await import("../../Data.js");
-
-            // Check if queue has pending items
             const items = nexaboard.queue.getAll();
             const hasPending = items.some((item) => item.status === "pending");
 
             if (!hasPending) {
-              console.log(
-                "[BOX] Queue is empty - exiting writing mode and showing queue_empty"
-              );
+              console.log("[BOX] Queue is empty - sending queue_empty");
 
-              // Update status to QUEUE_EMPTY mode
               updateBoxStatus(
                 {
                   currentMode: "QUEUE_EMPTY",
@@ -174,31 +161,28 @@ const parseBoxMessage = (message, io) => {
                 timestamp: new Date().toISOString(),
               });
 
-              // CRITICAL: Exit writing mode FIRST, then show queue_empty
               if (boxPort && boxPort.isOpen) {
-                // Step 1: Exit the writingMode() loop
-                boxPort.write("exit_writing\n");
-                console.log("[BOX] Sent exit_writing command");
-                // Step 2: Wait for Arduino to exit the loop
-                await new Promise((resolve) => setTimeout(resolve, 300));
-                // Step 3: Now show queue_empty animation
                 boxPort.write("queue_empty\n");
-                console.log("[BOX] Sent queue_empty command");
               }
               return;
             }
 
-            // Queue has items - NOW update to writing mode and proceed
+            // Queue has items - send writing command
+            console.log("[BOX] Queue has items - sending writing command");
+
+            if (boxPort && boxPort.isOpen) {
+              boxPort.write("writing\n");
+            }
+
+            // Wait for Arduino to enter writing mode
+            await new Promise((resolve) => setTimeout(resolve, 500));
+
             updateBoxStatus(
               {
                 currentMode: "WRITING",
-                lastMessage: msg,
+                lastMessage: "MODE_WRITING",
               },
               io
-            );
-
-            console.log(
-              "[BOX] Queue has pending items - starting queue processing"
             );
 
             const { startQueueProcessing } = await import(
@@ -208,27 +192,21 @@ const parseBoxMessage = (message, io) => {
               "./serialController.js"
             );
 
-            // Get persistent connections
             const persistentPort = getPersistentPort();
             const persistentParser = getPersistentParser();
 
-            // Check CNC connection
             if (!persistentPort || !persistentPort.isOpen) {
-              console.log("[BOX] CNC not connected for hardware draw");
+              console.log("[BOX] CNC not connected");
               io.emit("box:hardware-draw-error", {
                 error: "CNC is not connected",
                 timestamp: new Date().toISOString(),
               });
-              // Return box to ready mode
               if (boxPort && boxPort.isOpen) {
                 boxPort.write("exit_writing\n");
               }
               return;
             }
 
-            console.log("[BOX] Starting queue processing via hardware button");
-
-            // Start queue processing with connections (await to handle properly)
             await startQueueProcessing(
               io,
               persistentPort.path || "COM4",
@@ -238,23 +216,25 @@ const parseBoxMessage = (message, io) => {
               boxPort
             );
           } catch (error) {
-            console.error("[BOX] Error in hardware draw auto-start:", error);
+            console.error("[BOX] Error in hardware draw:", error);
             io.emit("box:hardware-draw-error", {
               error: error.message,
               timestamp: new Date().toISOString(),
             });
           }
         })();
-      } else {
-        // Software triggered - update mode normally
-        updateBoxStatus(
-          {
-            currentMode: "WRITING",
-            lastMessage: msg,
-          },
-          io
-        );
       }
+      break;
+
+    case "MODE_WRITING":
+      // Arduino entered writing mode (status update)
+      updateBoxStatus(
+        {
+          currentMode: "WRITING",
+          lastMessage: msg,
+        },
+        io
+      );
       break;
 
     case "MODE_ERASING":
