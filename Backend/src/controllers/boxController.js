@@ -202,21 +202,15 @@ const parseBoxMessage = (message, io) => {
 
             console.log("[BOX] Starting queue processing via hardware button");
 
-            // Start queue processing with connections
-            startQueueProcessing(
+            // Start queue processing with connections (await to handle properly)
+            await startQueueProcessing(
               io,
               persistentPort.path || "COM4",
               115200,
               persistentPort,
               persistentParser,
               boxPort
-            ).catch((error) => {
-              console.error("[BOX] Hardware queue processing error:", error);
-              io.emit("box:hardware-draw-error", {
-                error: error.message,
-                timestamp: new Date().toISOString(),
-              });
-            });
+            );
           } catch (error) {
             console.error("[BOX] Error in hardware draw auto-start:", error);
             io.emit("box:hardware-draw-error", {
