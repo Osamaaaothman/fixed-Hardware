@@ -943,6 +943,28 @@ void handleServerCommand(String cmd) {
         sendStatusToServer("LOGOUT");
     }
 
+    else if (cmd == "sync") {
+        Serial.println("[Server] → Status sync requested");
+        // Send current status to server
+        if (!loggedIn) {
+            sendStatusToServer("IDLE");
+        } else if (currentMode == MODE_WRITING) {
+            sendStatusToServer("MODE_WRITING");
+        } else if (currentMode == MODE_ERASING) {
+            sendStatusToServer("MODE_ERASING");
+        } else if (currentMode == MODE_PEN1) {
+            sendStatusToServer("MODE_PEN1");
+        } else if (currentMode == MODE_PEN2) {
+            sendStatusToServer("MODE_PEN2");
+        } else if (currentMode == MODE_ERASING_PEN) {
+            sendStatusToServer("MODE_ERASING_PEN");
+        } else if (currentMode == MODE_SCREENSHOT) {
+            sendStatusToServer("SCREENSHOT_REQUEST");
+        } else {
+            sendStatusToServer("LOGIN_OK"); // Logged in, in menu
+        }
+    }
+
     else {
         Serial.println("[Server] Unknown command");
     }

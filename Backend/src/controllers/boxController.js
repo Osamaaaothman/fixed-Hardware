@@ -135,15 +135,7 @@ const parseBoxMessage = (message, io) => {
         lastSoftwareCommand !== "writing" ||
         now - lastSoftwareCommandTime > COMMAND_TIMEOUT;
 
-      updateBoxStatus(
-        {
-          currentMode: "WRITING",
-          lastMessage: msg,
-        },
-        io
-      );
-
-      // If hardware button pressed, auto-start queue drawing
+      // If hardware button pressed, check queue BEFORE entering writing mode
       if (isHardwareTriggered && io) {
         console.log("[BOX] Hardware draw button pressed - checking queue");
 
@@ -153,7 +145,7 @@ const parseBoxMessage = (message, io) => {
           mode: "WRITING",
         });
 
-        // Check queue IMMEDIATELY before entering writing mode
+        // Check queue IMMEDIATELY - don't enter writing mode if empty
         (async () => {
           try {
             // Import required modules
@@ -165,22 +157,28 @@ const parseBoxMessage = (message, io) => {
 
             if (!hasPending) {
               console.log(
-                "[BOX] Queue is empty - showing queue_empty animation"
+                "[BOX] Queue is empty - showing queue_empty animation directly"
               );
               io.emit("box:hardware-draw-error", {
                 error: "No pending items in queue",
                 timestamp: new Date().toISOString(),
               });
-              // Exit writing mode immediately and show queue_empty
+              // Don't enter writing mode - show queue_empty directly
               if (boxPort && boxPort.isOpen) {
-                boxPort.write("exit_writing\n");
-                await new Promise((resolve) => setTimeout(resolve, 300));
                 boxPort.write("queue_empty\n");
               }
               return;
             }
 
-            // Queue has items - proceed with normal drawing
+            // Queue has items - NOW update to writing mode and proceed
+            updateBoxStatus(
+              {
+                currentMode: "WRITING",
+                lastMessage: msg,
+              },
+              io
+            );
+
             console.log(
               "[BOX] Queue has pending items - starting queue processing"
             );
@@ -229,6 +227,15 @@ const parseBoxMessage = (message, io) => {
             });
           }
         })();
+      } else {
+        // Software triggered - update mode normally
+        updateBoxStatus(
+          {
+            currentMode: "WRITING",
+            lastMessage: msg,
+          },
+          io
+        );
       }
       break;
 
