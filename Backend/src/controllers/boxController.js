@@ -486,6 +486,14 @@ const parseBoxMessage = (message, io) => {
           timestamp: new Date().toISOString(),
           source: "hardware_keypad",
         });
+        
+        // Exit screenshot mode after a short delay (1 second)
+        setTimeout(() => {
+          if (boxPort && boxPort.isOpen) {
+            console.log("[BOX] Auto-exiting screenshot mode");
+            boxPort.write("exit_screenshot\n");
+          }
+        }, 1000);
       }
       break;
 
