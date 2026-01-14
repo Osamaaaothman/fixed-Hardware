@@ -175,8 +175,10 @@ const parseBoxMessage = (message, io) => {
                 error: "No pending items in queue",
                 timestamp: new Date().toISOString(),
               });
-              // Send queue_empty command to Box
+              // Exit writing mode first, then show queue_empty animation
               if (boxPort && boxPort.isOpen) {
+                boxPort.write("exit_writing\n");
+                await new Promise((resolve) => setTimeout(resolve, 200));
                 boxPort.write("queue_empty\n");
               }
               return;
