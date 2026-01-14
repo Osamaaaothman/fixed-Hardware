@@ -289,6 +289,44 @@ export async function startQueueProcessing(
     return { success: false, message: "Queue is already being processed" };
   }
 
+  // Check if queue is empty at the start
+  if (nexaboard.queue.isEmpty()) {
+    console.log("[QUEUE] Queue is empty at start");
+
+    if (boxPort && boxPort.isOpen) {
+      try {
+        await sendBoxCommand(boxPort, "queue_empty");
+        console.log("[QUEUE] Sent queue_empty command to Box");
+
+        // Wait 2 seconds for the animation to display
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+
+        // Emit socket event
+        if (io) {
+          io.emit("box:queue-empty", {
+            timestamp: Date.now(),
+          });
+        }
+      } catch (boxError) {
+        console.error(
+          "[QUEUE] Warning: Failed to send queue_empty to Box:",
+          boxError
+        );
+      }
+    }
+
+    return {
+      success: true,
+      message: "Queue is empty",
+      results: {
+        total: 0,
+        completed: 0,
+        failed: 0,
+        items: [],
+      },
+    };
+  }
+
   isProcessing = true;
   const results = {
     total: 0,
