@@ -159,6 +159,16 @@ const parseBoxMessage = (message, io) => {
               console.log(
                 "[BOX] Queue is empty - showing queue_empty animation directly"
               );
+              
+              // Update status to QUEUE_EMPTY mode
+              updateBoxStatus(
+                {
+                  currentMode: "QUEUE_EMPTY",
+                  lastMessage: "queue_empty",
+                },
+                io
+              );
+              
               io.emit("box:hardware-draw-error", {
                 error: "No pending items in queue",
                 timestamp: new Date().toISOString(),
