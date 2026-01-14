@@ -175,9 +175,9 @@ const parseBoxMessage = (message, io) => {
                 error: "No pending items in queue",
                 timestamp: new Date().toISOString(),
               });
-              // Return box to ready mode
+              // Send queue_empty command to Box
               if (boxPort && boxPort.isOpen) {
-                boxPort.write("ready\n");
+                boxPort.write("queue_empty\n");
               }
               return;
             }
