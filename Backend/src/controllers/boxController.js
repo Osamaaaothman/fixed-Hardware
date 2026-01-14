@@ -89,6 +89,149 @@ const updateBoxStatus = (updates, io) => {
 };
 
 /**
+ * Execute pen G-code on CNC and return box to menu when done
+ */
+const executePenGcode = async (penType, io) => {
+  try {
+    // Import pen controller to get pen configs
+    const { PEN_CONFIGS, CNC_CONFIG } = await import("./penController.js");
+    const { getPersistentPort, getPersistentParser } = await import(
+      "./serialController.js"
+    );
+
+    const serialPort = getPersistentPort();
+    const serialParser = getPersistentParser();
+
+    if (!serialPort || !serialPort.isOpen) {
+      console.error(`[BOX] Serial port not available for ${penType}`);
+      if (io) {
+        io.emit("box:hardware-pen-error", {
+          error: "CNC not connected",
+          penType,
+          timestamp: new Date().toISOString(),
+        });
+      }
+      // Return box to ready mode
+      if (boxPort && boxPort.isOpen) {
+        boxPort.write(`exit_${penType}\n`);
+      }
+      return;
+    }
+
+    const config = PEN_CONFIGS[penType];
+    if (!config || config.gcode.length === 0) {
+      console.error(`[BOX] ${penType} has no G-code configured`);
+      if (io) {
+        io.emit("box:hardware-pen-error", {
+          error: `${penType} has no G-code configured`,
+          penType,
+          timestamp: new Date().toISOString(),
+        });
+      }
+      // Return box to ready mode
+      if (boxPort && boxPort.isOpen) {
+        boxPort.write(`exit_${penType}\n`);
+      }
+      return;
+    }
+
+    // Generate complete G-code with start/end commands
+    const gcode = [];
+    gcode.push(
+      "G21",
+      "G90",
+      `F${CNC_CONFIG.FEED_RATE}`,
+      `G1 Z${CNC_CONFIG.PEN_UP}`,
+      "G0 X0 Y0",
+      `G1 Z${CNC_CONFIG.PEN_DOWN}`
+    );
+    gcode.push(...config.gcode);
+    gcode.push(`G1 Z${CNC_CONFIG.PEN_UP}`, "G0 X0 Y0", "M2");
+
+    const gcodeText = gcode.join("\n");
+    const lines = gcodeText.split("\n").filter((line) => line.trim());
+
+    console.log(`[BOX] Executing ${penType} with ${lines.length} lines`);
+
+    let currentLine = 0;
+    let waitingForResponse = false;
+
+    const sendNextLine = () => {
+      if (currentLine >= lines.length) {
+        console.log(`[BOX] ${penType} execution complete`);
+        if (io) {
+          io.emit("box:hardware-pen-complete", {
+            penType,
+            timestamp: new Date().toISOString(),
+          });
+        }
+        // Wait 1 second then exit pen mode
+        setTimeout(() => {
+          if (boxPort && boxPort.isOpen) {
+            boxPort.write(`exit_${penType}\n`);
+          }
+        }, 1000);
+        return;
+      }
+
+      if (!waitingForResponse) {
+        const line = lines[currentLine];
+        waitingForResponse = true;
+        serialPort.write(line + "\n", (err) => {
+          if (err) console.error(`[BOX] Error writing to CNC:`, err);
+        });
+        console.log(
+          `[BOX] ${penType} ${currentLine + 1}/${lines.length} - ${line}`
+        );
+        if (io) {
+          io.emit("box:hardware-pen-progress", {
+            penType,
+            currentLine: currentLine + 1,
+            totalLines: lines.length,
+            progress: ((currentLine + 1) / lines.length) * 100,
+          });
+        }
+        currentLine++;
+      }
+    };
+
+    const responseHandler = (data) => {
+      const response = data.trim();
+      if (response === "ok" || response.startsWith("ok")) {
+        waitingForResponse = false;
+        sendNextLine();
+      } else if (response.startsWith("error")) {
+        console.error(`[BOX] GRBL error:`, response);
+        waitingForResponse = false;
+        sendNextLine();
+      }
+    };
+
+    serialParser.on("data", responseHandler);
+    sendNextLine();
+
+    // Remove listener after 2 minutes
+    setTimeout(
+      () => serialParser.removeListener("data", responseHandler),
+      120000
+    );
+  } catch (error) {
+    console.error(`[BOX] Error executing ${penType}:`, error);
+    if (io) {
+      io.emit("box:hardware-pen-error", {
+        error: error.message,
+        penType,
+        timestamp: new Date().toISOString(),
+      });
+    }
+    // Return box to ready mode
+    if (boxPort && boxPort.isOpen) {
+      boxPort.write(`exit_${penType}\n`);
+    }
+  }
+};
+
+/**
  * Parse Box status messages and update state
  */
 const parseBoxMessage = (message, io) => {
@@ -493,6 +636,15 @@ const parseBoxMessage = (message, io) => {
         },
         io
       );
+      // Auto-execute pen1 G-code
+      console.log("[BOX] Hardware Pen1 button pressed - executing pen1");
+      if (io) {
+        io.emit("box:hardware-pen-triggered", {
+          timestamp: new Date().toISOString(),
+          penType: "pen1",
+        });
+      }
+      executePenGcode("pen1", io);
       break;
 
     case "MODE_PEN2":
@@ -503,6 +655,15 @@ const parseBoxMessage = (message, io) => {
         },
         io
       );
+      // Auto-execute pen2 G-code
+      console.log("[BOX] Hardware Pen2 button pressed - executing pen2");
+      if (io) {
+        io.emit("box:hardware-pen-triggered", {
+          timestamp: new Date().toISOString(),
+          penType: "pen2",
+        });
+      }
+      executePenGcode("pen2", io);
       break;
 
     case "MODE_ERASING_PEN":
@@ -513,6 +674,17 @@ const parseBoxMessage = (message, io) => {
         },
         io
       );
+      // Auto-execute erasing_pen G-code
+      console.log(
+        "[BOX] Hardware Erasing Pen button pressed - executing erasing_pen"
+      );
+      if (io) {
+        io.emit("box:hardware-pen-triggered", {
+          timestamp: new Date().toISOString(),
+          penType: "erasing_pen",
+        });
+      }
+      executePenGcode("erasing_pen", io);
       break;
 
     case "MaxAttemptAccessed":

@@ -121,12 +121,18 @@ async function processQueueItem(
       await new Promise((resolve) => setTimeout(resolve, 2000));
     }
 
-    // Send Box to writing mode before starting G-code transmission
+    // Send Box to appropriate mode before starting G-code transmission
     if (boxPort && boxPort.isOpen) {
       try {
-        await sendBoxCommand(boxPort, "writing");
+        // Determine command based on item type
+        let modeCommand = "writing";
+        if (item.type === "pen" && item.penType) {
+          modeCommand = item.penType; // pen1, pen2, or erasing_pen
+        }
+
+        await sendBoxCommand(boxPort, modeCommand);
         boxModeChanged = true;
-        console.log("[QUEUE] Box entered writing mode");
+        console.log(`[QUEUE] Box entered ${modeCommand} mode`);
 
         // Emit socket event
         if (io) {
@@ -184,8 +190,15 @@ async function processQueueItem(
     // Return Box to ready/menu mode after drawing
     if (boxPort && boxPort.isOpen && boxModeChanged) {
       try {
-        await sendBoxCommand(boxPort, "exit_writing");
-        console.log("[QUEUE] Box exited writing mode, returned to menu");
+        let exitCommand = "exit_writing";
+        if (item.type === "pen" && item.penType) {
+          exitCommand = `exit_${item.penType}`; // exit_pen1, exit_pen2, or exit_erasing_pen
+        }
+
+        await sendBoxCommand(boxPort, exitCommand);
+        console.log(
+          `[QUEUE] Box exited mode with ${exitCommand}, returned to menu`
+        );
 
         // Emit socket event
         if (io) {

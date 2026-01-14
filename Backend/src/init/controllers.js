@@ -9,6 +9,7 @@ import systemController from "../controllers/systemController.js";
 import boxController from "../controllers/boxController.js";
 import cameraController from "../controllers/cameraController.js";
 import erasingController from "../controllers/erasingController.js";
+import penController from "../controllers/penController.js";
 
 export default function initControllers(app) {
   // System controller (lock/unlock) - must be first
@@ -24,4 +25,5 @@ export default function initControllers(app) {
   app.use("/api/box", boxController);
   app.use("/api/camera", cameraController);
   app.use("/api/erasing", erasingController);
+  app.use("/api/pen", penController);
 }

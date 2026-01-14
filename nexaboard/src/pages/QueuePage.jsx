@@ -7,6 +7,7 @@ import QueueControls from "../components/queue/QueueControls";
 import RecoveryButton from "../components/RecoveryButton";
 import SerialLogModal from "../components/SerialLogModal";
 import EraseButton from "../components/EraseButton";
+import PenButtons from "../components/PenButtons";
 import { SOCKET_CONFIG, SERIAL_CONFIG } from "../config/api.config.js";
 import {
   getQueue,
@@ -514,6 +515,15 @@ const QueuePage = () => {
 
           {/* Recovery Button - Right sidebar */}
           <div className="lg:col-span-4 space-y-4">
+            {/* Pen Controls */}
+            <div className="bg-base-200 rounded-2xl p-6 shadow-xl border border-base-300">
+              <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                <Package className="w-5 h-5" />
+                Pen Controls
+              </h3>
+              <PenButtons onQueueUpdate={fetchQueue} />
+            </div>
+
             <RecoveryButton />
 
             {/* Info Card */}
@@ -595,7 +605,11 @@ const QueuePage = () => {
                 <div>
                   <h3 className="font-bold text-2xl">G-code Preview</h3>
                   <p className="text-sm text-base-content/60 mt-1">
-                    {selectedItem.type === "image" ? "Image" : "Text"} Mode
+                    {selectedItem.type === "pen"
+                      ? selectedItem.name || "Pen Mode"
+                      : selectedItem.type === "image"
+                      ? "Image Mode"
+                      : "Text Mode"}
                   </p>
                 </div>
               </div>
@@ -634,7 +648,9 @@ const QueuePage = () => {
                       Type:
                     </span>
                     <span className="badge badge-accent badge-sm capitalize">
-                      {selectedItem.type}
+                      {selectedItem.type === "pen"
+                        ? selectedItem.name || selectedItem.penType || "Pen"
+                        : selectedItem.type}
                     </span>
                   </div>
                 </div>
