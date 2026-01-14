@@ -4,10 +4,25 @@
  * Change these values here to update them across the entire application
  */
 
+// Detect backend URL dynamically
+// In production, use the same host as the frontend
+// In development, use localhost:5000
+const getBackendUrl = () => {
+  // If running in production (built and served)
+  if (import.meta.env.PROD) {
+    // Use the current window location but with backend port
+    const protocol = window.location.protocol;
+    const hostname = window.location.hostname;
+    return `${protocol}//${hostname}:5000`;
+  }
+  // In development, use localhost
+  return "http://localhost:5000";
+};
+
 // Backend API Configuration
 export const API_CONFIG = {
   // Base URL for the backend API
-  BASE_URL: "http://192.168.1.34:3000",
+  BASE_URL: getBackendUrl(),
 
   // API endpoints (derived from base URL)
   get ENDPOINTS() {

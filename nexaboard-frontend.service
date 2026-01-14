@@ -1,0 +1,24 @@
+[Unit]
+Description=Nexaboard Frontend Server
+After=network.target nexaboard-backend.service
+
+[Service]
+Type=simple
+User=osama
+WorkingDirectory=/home/osama/code/fixed-Hardware/nexaboard
+Environment="NODE_ENV=production"
+Environment="HOST=0.0.0.0"
+Environment="PORT=3000"
+Environment="PATH=/home/osama/.nvm/versions/node/v24.11.1/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+ExecStart=/home/osama/.nvm/versions/node/v24.11.1/bin/npx vite preview --host 0.0.0.0 --port 3000
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+# Security settings
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

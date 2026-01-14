@@ -16,7 +16,8 @@ const io = new Server(httpServer, {
   },
 });
 
-const PORT = 3000;
+const PORT = process.env.PORT || 5000;
+const HOST = process.env.HOST || '0.0.0.0';
 
 // Middleware
 app.use(cors());
@@ -62,8 +63,9 @@ io.on("connection", (socket) => {
 });
 
 // Start server
-httpServer.listen(PORT, async () => {
-  console.log(`Server is running on http://localhost:${PORT}`);
+httpServer.listen(PORT, HOST, async () => {
+  console.log(`Server is running on http://${HOST}:${PORT}`);
+  console.log(`Access from local network: http://<raspberry-pi-ip>:${PORT}`);
 
   // Initialize queue after server starts
   await initializeQueue();

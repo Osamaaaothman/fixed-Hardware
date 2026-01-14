@@ -1,0 +1,23 @@
+[Unit]
+Description=Nexaboard Backend Server
+After=network.target
+
+[Service]
+Type=simple
+User=osama
+WorkingDirectory=/home/osama/code/fixed-Hardware/Backend
+Environment="NODE_ENV=production"
+Environment="PORT=5000"
+Environment="PATH=/home/osama/.nvm/versions/node/v24.11.1/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+ExecStart=/home/osama/.nvm/versions/node/v24.11.1/bin/node index.js
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+# Security settings
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
