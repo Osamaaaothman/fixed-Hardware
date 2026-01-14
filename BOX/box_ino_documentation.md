@@ -27,10 +27,11 @@
 
 ### System Control Commands
 
-| Command   | Condition | Action                                                      |
-| --------- | --------- | ----------------------------------------------------------- |
-| `exiting` | Anytime   | Logs out user completely, returns to RFID screen            |
-| `locked`  | Anytime   | Forces logout, shows lock animation, returns to RFID screen |
+| Command       | Condition | Action                                                      |
+| ------------- | --------- | ----------------------------------------------------------- |
+| `exiting`     | Anytime   | Logs out user completely, returns to RFID screen            |
+| `locked`      | Anytime   | Forces logout, shows lock animation, returns to RFID screen |
+| `queue_empty` | Logged in | Shows queue empty animation, only when no mode is running   |
 
 ### Command Rules & Restrictions
 
@@ -56,11 +57,12 @@
 
 ### System State Status
 
-| Status       | Trigger                           | Context                         |
-| ------------ | --------------------------------- | ------------------------------- |
-| `MODE_READY` | Mode completed or `ready` command | System ready for next command   |
-| `SLEEP`      | 30 seconds of inactivity          | Screen turns off, system sleeps |
-| `IDLE`       | Wake from sleep                   | Keypress detected during sleep  |
+| Status              | Trigger                           | Context                         |
+| ------------------- | --------------------------------- | ------------------------------- |
+| `MODE_READY`        | Mode completed or `ready` command | System ready for next command   |
+| `SLEEP`             | 30 seconds of inactivity          | Screen turns off, system sleeps |
+| `IDLE`              | Wake from sleep                   | Keypress detected during sleep  |
+| `QUEUE_EMPTY_SHOWN` | Queue empty animation displayed   | Response to `queue_empty` cmd   |
 
 ### Mode Activation Status
 
@@ -77,43 +79,43 @@
 
 ## Operating Modes
 
-### Mode 1: Pen1 (Colorful Dots)
+### Mode 1: Pen1 (Bouncing Dots)
 
-| Property        | Value                                                      |
-| --------------- | ---------------------------------------------------------- |
-| **Activation**  | Keypad: `1` (page 1) / Serial: `pen1`                      |
-| **Function**    | Draws horizontal lines of colored dots with cycling colors |
-| **Colors**      | Red → Green → Blue → Yellow → Magenta → Cyan               |
-| **Pattern**     | Horizontal lines, y-position increments, wraps around      |
-| **RGB Effect**  | Writing effect (color cycling)                             |
-| **Exit Method** | Server command `exit_pen1` ONLY                            |
-| **Keypad Exit** | ❌ Disabled (no # exit)                                    |
-| **Status Sent** | `MODE_PEN1` (start), `MODE_READY` (end)                    |
+| Property        | Value                                                        |
+| --------------- | ------------------------------------------------------------ |
+| **Activation**  | Keypad: `1` (page 1) / Serial: `pen1`                        |
+| **Function**    | Draws cyan dots bouncing horizontally back and forth         |
+| **Colors**      | Cyan                                                         |
+| **Pattern**     | Horizontal bouncing, y-position increments when x reverses   |
+| **RGB Effect**  | None (simplified mode)                                       |
+| **Exit Method** | Keypad: `#` OR Server: `exit_pen1`                           |
+| **Keypad Exit** | ✅ Enabled                                                   |
+| **Status Sent** | `MODE_PEN1` (start), `MODE_READY` NOT sent (no explicit end) |
 
 ### Mode 2: Pen2 (Spiral Pattern)
 
-| Property        | Value                                                |
-| --------------- | ---------------------------------------------------- |
-| **Activation**  | Keypad: `2` (page 1) / Serial: `pen2`                |
-| **Function**    | Draws circular spiral patterns with expanding radius |
-| **Pattern**     | 360° circles, radius expands 10-60 pixels            |
-| **Color**       | Cyan                                                 |
-| **RGB Effect**  | Writing effect (color cycling)                       |
-| **Exit Method** | Server command `exit_pen2` ONLY                      |
-| **Keypad Exit** | ❌ Disabled                                          |
-| **Status Sent** | `MODE_PEN2` (start), `MODE_READY` (end)              |
+| Property        | Value                                                        |
+| --------------- | ------------------------------------------------------------ |
+| **Activation**  | Keypad: `2` (page 1) / Serial: `pen2`                        |
+| **Function**    | Draws circular spiral patterns with expanding radius         |
+| **Pattern**     | Continuous spiral, radius expands 5-60 pixels then resets    |
+| **Color**       | Magenta                                                      |
+| **RGB Effect**  | None (simplified mode)                                       |
+| **Exit Method** | Keypad: `#` OR Server: `exit_pen2`                           |
+| **Keypad Exit** | ✅ Enabled                                                   |
+| **Status Sent** | `MODE_PEN2` (start), `MODE_READY` NOT sent (no explicit end) |
 
 ### Mode 3: Erasing Pen
 
-| Property        | Value                                          |
-| --------------- | ---------------------------------------------- |
-| **Activation**  | Keypad: `3` (page 1) / Serial: `erasing_pen`   |
-| **Function**    | Erases with red circles moving horizontally    |
-| **Pattern**     | Horizontal sweep with red circle outlines      |
-| **RGB Effect**  | Erasing effect (blue pulsing)                  |
-| **Exit Method** | Server command `exit_erasing_pen` ONLY         |
-| **Keypad Exit** | ❌ Disabled                                    |
-| **Status Sent** | `MODE_ERASING_PEN` (start), `MODE_READY` (end) |
+| Property        | Value                                                 |
+| --------------- | ----------------------------------------------------- |
+| **Activation**  | Keypad: `3` (page 1) / Serial: `erasing_pen`          |
+| **Function**    | Erases with red rounded rectangle moving horizontally |
+| **Pattern**     | Horizontal sweep with red rounded rectangle outlines  |
+| **RGB Effect**  | None (simplified mode)                                |
+| **Exit Method** | Keypad: `#` OR Server: `exit_erasing_pen`             |
+| **Keypad Exit** | ✅ Enabled                                            |
+| **Status Sent** | `MODE_ERASING_PEN` (start), `MODE_READY` NOT sent     |
 
 ### Mode 4: Writing/Drawing
 
@@ -124,6 +126,7 @@
 | **Pattern**     | Progressive horizontal line drawing        |
 | **Color**       | Cyan                                       |
 | **RGB Effect**  | Writing effect (color cycling, 15ms speed) |
+| **Display**     | Shows "Drawing Mode" title and exit hint   |
 | **Exit Method** | Keypad: `#` OR Server: `exit_writing`      |
 | **Keypad Exit** | ✅ Enabled                                 |
 | **Status Sent** | `MODE_WRITING` (start), `MODE_READY` (end) |
@@ -136,22 +139,24 @@
 | **Function**    | Red erasing effect moving horizontally     |
 | **Pattern**     | Red rectangles sweeping across screen      |
 | **RGB Effect**  | Erasing effect (blue pulsing, 20ms speed)  |
+| **Display**     | Shows "Erasing Mode" title and exit hint   |
 | **Exit Method** | Keypad: `#` OR Server: `exit_erasing`      |
 | **Keypad Exit** | ✅ Enabled                                 |
 | **Status Sent** | `MODE_ERASING` (start), `MODE_READY` (end) |
 
 ### Mode 6: Screenshot
 
-| Property        | Value                                            |
-| --------------- | ------------------------------------------------ |
-| **Activation**  | Keypad: `6` (page 2) / Serial: `screenshot`      |
-| **Function**    | Camera flash animation effect                    |
-| **Visual**      | White camera icon, flash effect                  |
-| **LED Flash**   | 3x white LED pulses (RGB 255,255,255)            |
-| **RGB Effect**  | White flash effect                               |
-| **Exit Method** | Server command `exit_screenshot` ONLY            |
-| **Keypad Exit** | ❌ Disabled                                      |
-| **Status Sent** | `SCREENSHOT_REQUEST` (start), `MODE_READY` (end) |
+| Property        | Value                                                |
+| --------------- | ---------------------------------------------------- |
+| **Activation**  | Keypad: `6` (page 2) / Serial: `screenshot`          |
+| **Function**    | Camera flash animation effect                        |
+| **Visual**      | Camera icon with flash effect on screen              |
+| **LED Flash**   | 3x white LED pulses (RGB 255,255,255)                |
+| **RGB Effect**  | White flash effect                                   |
+| **Display**     | Shows "Screenshot" title, camera icon, and exit hint |
+| **Exit Method** | Server command `exit_screenshot` ONLY                |
+| **Keypad Exit** | ❌ Disabled                                          |
+| **Status Sent** | `SCREENSHOT_REQUEST` (start), `MODE_READY` (end)     |
 
 ---
 
@@ -243,6 +248,7 @@
 | `2` | Enter Pen2 Mode        |
 | `3` | Enter Erasing Pen Mode |
 | `A` | Next page (→ Page 2)   |
+| `D` | **EXIT** (logout)      |
 
 ### Mode Menu - Page 2
 
@@ -251,8 +257,8 @@
 | `4` | Enter Writing/Drawing Mode |
 | `5` | Enter Erasing Mode         |
 | `6` | Enter Screenshot Mode      |
-| `3` | **Logout** (exit system)   |
 | `B` | Previous page (← Page 1)   |
+| `D` | **EXIT** (logout)          |
 
 ### Inside Modes
 
@@ -260,9 +266,9 @@
 | ----------- | --- | ---------------------------- |
 | Writing     | `#` | Exit mode                    |
 | Erasing     | `#` | Exit mode                    |
-| Pen1        | -   | No keypad exit (server only) |
-| Pen2        | -   | No keypad exit (server only) |
-| Erasing Pen | -   | No keypad exit (server only) |
+| Pen1        | `#` | Exit mode (returns to menu)  |
+| Pen2        | `#` | Exit mode (returns to menu)  |
+| Erasing Pen | `#` | Exit mode (returns to menu)  |
 | Screenshot  | -   | No keypad exit (server only) |
 
 ---
@@ -339,6 +345,7 @@
 | **Error**          | Wrong password    | Red box shake, X symbol, attempts counter             |
 | **Lock**           | Max attempts      | Red lock icon, "LOCKED" text                          |
 | **Lock Timer**     | During lock       | Yellow circular timer countdown                       |
+| **Queue Empty**    | `queue_empty` cmd | Yellow box icon with "QUEUE IS EMPTY" text, LED flash |
 
 ---
 
@@ -478,11 +485,12 @@
 ### Important Restrictions
 
 1. **Only ONE mode can run at a time** - attempts to start new mode while another is active are ignored
-2. **Modes Pen1, Pen2, Erasing Pen, Screenshot** cannot be exited via keypad - only via server command
-3. **Modes Writing and Erasing** can be exited via `#` key OR server command
-4. **Logout from menu** is only available on page 2 (key 3)
+2. **Only Screenshot mode** cannot be exited via keypad - requires server command
+3. **All other modes (Pen1, Pen2, Erasing Pen, Writing, Erasing)** can be exited via `#` key OR server command
+4. **Logout from menu** is available via `D` key on both pages
 5. **Sleep mode** does NOT activate while a mode is running
-6. **Server commands** are checked continuously inside modes (except Writing/Erasing which also check on keypress)
+6. **Server commands** are checked continuously inside all modes
+7. **Menu navigation debounce** - 250ms delay prevents rapid key presses
 
 ### Automatic Behaviors
 

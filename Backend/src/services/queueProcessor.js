@@ -361,6 +361,29 @@ export async function startQueueProcessing(
       `[QUEUE] Processing finished: ${results.completed} completed, ${results.failed} failed`
     );
 
+    // Check if queue is now empty and notify Box
+    if (nexaboard.queue.isEmpty() && boxPort && boxPort.isOpen) {
+      try {
+        await sendBoxCommand(boxPort, "queue_empty");
+        console.log("[QUEUE] Sent queue_empty command to Box");
+
+        // Wait 2 seconds for the animation to display
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+
+        // Emit socket event
+        if (io) {
+          io.emit("box:queue-empty", {
+            timestamp: Date.now(),
+          });
+        }
+      } catch (boxError) {
+        console.error(
+          "[QUEUE] Warning: Failed to send queue_empty to Box:",
+          boxError
+        );
+      }
+    }
+
     return {
       success: true,
       message: "Queue processing completed",
