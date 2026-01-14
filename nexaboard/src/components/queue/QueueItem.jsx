@@ -75,7 +75,7 @@ const QueueItem = ({
       case "pen":
         return (
           <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+            <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" />
           </svg>
         );
       default:
@@ -87,7 +87,7 @@ const QueueItem = ({
     <>
       <div
         className={`group relative rounded-xl p-4 border-2 transition-all ${
-          item.type === "pen" 
+          item.type === "pen"
             ? "bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/10 dark:to-pink-900/10 border-purple-300 dark:border-purple-700 hover:border-purple-400 dark:hover:border-purple-600"
             : "bg-white dark:bg-base-200 border-base-300 hover:border-primary"
         }`}
@@ -101,13 +101,19 @@ const QueueItem = ({
         }}
       >
         {/* Status Indicator Bar */}
-        <div className={`absolute top-0 left-0 w-1 h-full rounded-l-xl ${
-          item.type === "pen" ? "bg-gradient-to-b from-purple-500 to-pink-500" :
-          item.status === "completed" ? "bg-success" :
-          item.status === "processing" ? "bg-info" :
-          item.status === "failed" ? "bg-error" :
-          "bg-base-300"
-        }`}></div>
+        <div
+          className={`absolute top-0 left-0 w-1 h-full rounded-l-xl ${
+            item.type === "pen"
+              ? "bg-gradient-to-b from-purple-500 to-pink-500"
+              : item.status === "completed"
+              ? "bg-success"
+              : item.status === "processing"
+              ? "bg-info"
+              : item.status === "failed"
+              ? "bg-error"
+              : "bg-base-300"
+          }`}
+        ></div>
 
         <div className="flex items-center gap-4 pl-2">
           {/* Drag Handle */}
@@ -144,27 +150,31 @@ const QueueItem = ({
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between gap-2 mb-2">
               <div className="flex items-center gap-2">
-                <div className={`p-1.5 rounded-lg ${
-                  item.type === "pen" 
-                    ? "bg-gradient-to-br from-purple-100 to-pink-100 dark:from-purple-900/30 dark:to-pink-900/30 text-purple-600 dark:text-purple-400"
-                    : item.type === "image" 
-                    ? "bg-purple-100 dark:bg-purple-900/20" 
-                    : "bg-blue-100 dark:bg-blue-900/20"
-                }`}>
+                <div
+                  className={`p-1.5 rounded-lg ${
+                    item.type === "pen"
+                      ? "bg-gradient-to-br from-purple-100 to-pink-100 dark:from-purple-900/30 dark:to-pink-900/30 text-purple-600 dark:text-purple-400"
+                      : item.type === "image"
+                      ? "bg-purple-100 dark:bg-purple-900/20"
+                      : "bg-blue-100 dark:bg-blue-900/20"
+                  }`}
+                >
                   {getTypeIcon(item.type)}
                 </div>
                 <div>
-                  <h3 className={`font-semibold text-sm ${
-                    item.type === "pen" 
-                      ? "text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-pink-600 dark:from-purple-400 dark:to-pink-400"
-                      : "text-base-content"
-                  }`}>
-                    {item.type === "pen" 
+                  <h3
+                    className={`font-semibold text-sm ${
+                      item.type === "pen"
+                        ? "text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-pink-600 dark:from-purple-400 dark:to-pink-400"
+                        : "text-base-content"
+                    }`}
+                  >
+                    {item.type === "pen"
                       ? item.name || "Pen Drawing"
-                      : item.type === "image" 
-                      ? "Image" 
-                      : item.type === "text" 
-                      ? "Text" 
+                      : item.type === "image"
+                      ? "Image"
+                      : item.type === "text"
+                      ? "Text"
                       : "Drawing"}
                   </h3>
                   <p className="text-xs text-base-content/50">
@@ -197,8 +207,12 @@ const QueueItem = ({
               <div className="flex items-center gap-4 text-xs text-base-content/60 mb-3">
                 {item.type === "pen" && (
                   <div className="flex items-center gap-1.5 text-purple-600 dark:text-purple-400 font-medium">
-                    <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+                    <svg
+                      className="w-3.5 h-3.5"
+                      fill="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" />
                     </svg>
                     <span>{item.penType || "Pen Mode"}</span>
                   </div>
@@ -230,13 +244,20 @@ const QueueItem = ({
                 <div className="flex items-center justify-between text-xs mb-1.5">
                   <span className="text-base-content/60">Progress</span>
                   <span className="text-base-content/60 font-medium">
-                    {Math.round((item.currentLine / item.stats.totalLines) * 100)}%
+                    {Math.round(
+                      (item.currentLine / item.stats.totalLines) * 100
+                    )}
+                    %
                   </span>
                 </div>
                 <div className="w-full bg-base-300 rounded-full h-1.5 overflow-hidden">
-                  <div 
+                  <div
                     className="bg-info h-full transition-all duration-300"
-                    style={{ width: `${(item.currentLine / item.stats.totalLines) * 100}%` }}
+                    style={{
+                      width: `${
+                        (item.currentLine / item.stats.totalLines) * 100
+                      }%`,
+                    }}
                   ></div>
                 </div>
               </div>
