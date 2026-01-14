@@ -613,43 +613,42 @@ const StatusPage = () => {
   };
 
   return (
-    <div className="w-full h-full p-8 overflow-auto bg-base-100">
-      <div className="max-w-7xl mx-auto">
+    <div className="w-full h-full pb-20 md:pb-0 md:p-6 overflow-auto bg-base-100">
+      <div className="max-w-7xl mx-auto p-4">
         {/* Header */}
-        <div className="flex items-center gap-3 mb-8 pb-4 border-b-2 border-primary/20">
-          <div className="w-1 h-8 bg-primary rounded-full"></div>
-          <h2 className="text-3xl font-bold">System Status & Connections</h2>
-          <Activity className="w-6 h-6 text-primary ml-auto animate-pulse" />
+        <div className="flex items-center gap-2 mb-4 pb-3 border-b border-base-300">
+          <Activity className="w-5 h-5 text-primary" />
+          <h2 className="text-xl md:text-2xl font-bold">System Status</h2>
         </div>
 
         {/* Status Overview Cards */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mb-4">
           {/* CNC Status Card */}
-          <div className="bg-base-200 rounded-2xl p-6 shadow-xl border border-base-300">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold flex items-center gap-2">
-                <Cpu className="w-5 h-5" />
-                CNC Controller
+          <div className="bg-base-100 rounded-lg p-4 border border-base-300">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold flex items-center gap-2">
+                <Cpu className="w-4 h-4" />
+                CNC
               </h3>
               {cncStatus.connected ? (
-                <Wifi className="w-5 h-5 text-success animate-pulse" />
+                <Wifi className="w-4 h-4 text-success" />
               ) : (
-                <WifiOff className="w-5 h-5 text-error" />
+                <WifiOff className="w-4 h-4 text-error" />
               )}
             </div>
 
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
+            <div className="space-y-1.5 text-xs">
+              <div className="flex justify-between">
                 <span className="text-base-content/70">Port</span>
-                <span className="font-medium font-mono text-xs">
+                <span className="font-mono truncate ml-2">
                   {cncStatus.port || "Not connected"}
                 </span>
               </div>
 
-              <div className="flex justify-between text-sm">
+              <div className="flex justify-between">
                 <span className="text-base-content/70">Status</span>
                 <span
-                  className={`badge badge-sm ${
+                  className={`badge badge-xs ${
                     cncStatus.connected ? "badge-success" : "badge-ghost"
                   }`}
                 >
@@ -657,10 +656,10 @@ const StatusPage = () => {
                 </span>
               </div>
 
-              <div className="flex justify-between text-sm">
+              <div className="flex justify-between">
                 <span className="text-base-content/70">Drawing</span>
                 <span
-                  className={`badge badge-sm ${
+                  className={`badge badge-xs ${
                     cncStatus.isDrawing ? "badge-warning" : "badge-ghost"
                   }`}
                 >
@@ -668,35 +667,34 @@ const StatusPage = () => {
                 </span>
               </div>
 
-              <div className="flex justify-between text-sm">
+              <div className="flex justify-between">
                 <span className="text-base-content/70">Position</span>
-                <span className="font-mono text-xs">
+                <span className="font-mono">
                   X:{cncStatus.position.x.toFixed(1)} Y:
-                  {cncStatus.position.y.toFixed(1)} Z:
-                  {cncStatus.position.z.toFixed(1)}
+                  {cncStatus.position.y.toFixed(1)}
                 </span>
               </div>
             </div>
           </div>
 
           {/* Box Status Card */}
-          <div className="bg-base-200 rounded-2xl p-6 shadow-xl border border-base-300">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold flex items-center gap-2">
-                <BoxIcon className="w-5 h-5" />
-                Box Controller
+          <div className="bg-base-100 rounded-lg p-4 border border-base-300">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold flex items-center gap-2">
+                <BoxIcon className="w-4 h-4" />
+                Box
               </h3>
               {boxStatus.connected ? (
-                <Wifi className="w-5 h-5 text-success animate-pulse" />
+                <Wifi className="w-4 h-4 text-success" />
               ) : (
-                <WifiOff className="w-5 h-5 text-error" />
+                <WifiOff className="w-4 h-4 text-error" />
               )}
             </div>
 
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
+            <div className="space-y-1.5 text-xs">
+              <div className="flex justify-between">
                 <span className="text-base-content/70">Port</span>
-                <span className="font-medium font-mono text-xs">
+                <span className="font-mono truncate ml-2">
                   {boxStatus.port || "Not connected"}
                 </span>
               </div>

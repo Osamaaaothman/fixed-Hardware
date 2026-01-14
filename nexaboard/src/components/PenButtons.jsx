@@ -1,4 +1,4 @@
-import { Play, Plus } from "lucide-react";
+import { Play, Plus, Pencil, Eraser } from "lucide-react";
 import { useState } from "react";
 import { executePen, addPenToQueue } from "../api/penApi";
 import { toast } from "sonner";
@@ -7,9 +7,24 @@ const PenButtons = ({ onQueueUpdate }) => {
   const [executing, setExecuting] = useState(null);
 
   const pens = [
-    { type: "pen1", name: "Pen 1", color: "bg-blue-500" },
-    { type: "pen2", name: "Pen 2", color: "bg-green-500" },
-    { type: "erasing_pen", name: "Erasing Pen", color: "bg-red-500" },
+    {
+      type: "pen1",
+      name: "Pen 1",
+      icon: <Pencil size={18} />,
+      color: "primary",
+    },
+    {
+      type: "pen2",
+      name: "Pen 2",
+      icon: <Pencil size={18} />,
+      color: "secondary",
+    },
+    {
+      type: "erasing_pen",
+      name: "Erasing Pen",
+      icon: <Eraser size={18} />,
+      color: "accent",
+    },
   ];
 
   const handleExecute = async (penType, penName) => {
@@ -41,33 +56,38 @@ const PenButtons = ({ onQueueUpdate }) => {
   };
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
       {pens.map((pen) => (
         <div
           key={pen.type}
-          className={`card ${
-            pen.color
-          } bg-opacity-10 border-2 border-${pen.color.replace("bg-", "")}`}
+          className="bg-base-100 border border-base-300 rounded-lg p-3 hover:shadow-md transition"
         >
-          <div className="card-body p-4">
-            <h3 className="card-title text-lg">{pen.name}</h3>
-            <div className="card-actions justify-end gap-2 mt-2">
-              <button
-                onClick={() => handleExecute(pen.type, pen.name)}
-                disabled={executing === pen.type}
-                className={`btn btn-sm ${pen.color} text-white gap-1`}
-              >
-                <Play size={16} />
-                {executing === pen.type ? "Running..." : "Execute"}
-              </button>
-              <button
-                onClick={() => handleAddToQueue(pen.type, pen.name)}
-                className="btn btn-sm btn-outline gap-1"
-              >
-                <Plus size={16} />
-                Queue
-              </button>
+          <div className="flex items-center gap-2 mb-3">
+            <div className={`p-2 rounded bg-${pen.color}/10 text-${pen.color}`}>
+              {pen.icon}
             </div>
+            <h3 className="font-semibold text-sm">{pen.name}</h3>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => handleExecute(pen.type, pen.name)}
+              disabled={executing === pen.type}
+              className={`btn btn-sm btn-${pen.color} flex-1 gap-1`}
+            >
+              {executing === pen.type ? (
+                <span className="loading loading-spinner loading-xs"></span>
+              ) : (
+                <Play size={14} />
+              )}
+              {executing === pen.type ? "Running" : "Execute"}
+            </button>
+            <button
+              onClick={() => handleAddToQueue(pen.type, pen.name)}
+              className="btn btn-sm btn-ghost btn-square"
+              title="Add to queue"
+            >
+              <Plus size={16} />
+            </button>
           </div>
         </div>
       ))}

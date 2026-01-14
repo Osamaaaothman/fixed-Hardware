@@ -342,16 +342,14 @@ const QueuePage = () => {
   }
 
   return (
-    <div className="w-full h-full p-4 md:p-6 overflow-auto bg-base-100">
-      <div className="max-w-7xl mx-auto">
+    <div className="w-full h-full pb-20 md:pb-4 md:p-6 overflow-auto bg-base-100">
+      <div className="max-w-7xl mx-auto p-4">
         {/* Simple Header with Total Count */}
-        <div className="mb-6">
-          <div className="flex items-center justify-between">
+        <div className="mb-4">
+          <div className="flex items-center justify-between flex-wrap gap-3">
             <div>
-              <h1 className="text-3xl font-bold text-base-content mb-1">
-                Queue
-              </h1>
-              <p className="text-sm text-base-content/50">
+              <h1 className="text-2xl md:text-3xl font-bold">Queue</h1>
+              <p className="text-sm text-base-content/60 mt-1">
                 {items.length === 0
                   ? "No items"
                   : `${items.length} ${items.length === 1 ? "item" : "items"}`}
@@ -359,41 +357,41 @@ const QueuePage = () => {
             </div>
 
             {/* Connection Status Indicators */}
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
               <div
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg ${
+                className={`flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium ${
                   cncConnected
-                    ? "bg-success/20 text-success"
-                    : "bg-error/20 text-error"
+                    ? "bg-success/10 text-success"
+                    : "bg-error/10 text-error"
                 }`}
               >
                 {cncConnected ? (
-                  <Wifi className="w-4 h-4" />
+                  <Wifi className="w-3 h-3" />
                 ) : (
-                  <WifiOff className="w-4 h-4" />
+                  <WifiOff className="w-3 h-3" />
                 )}
-                <span className="text-xs font-medium">CNC</span>
+                <span className="hidden sm:inline">CNC</span>
               </div>
               <div
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg ${
+                className={`flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium ${
                   boxConnected
-                    ? "bg-success/20 text-success"
-                    : "bg-error/20 text-error"
+                    ? "bg-success/10 text-success"
+                    : "bg-error/10 text-error"
                 }`}
               >
                 {boxConnected ? (
-                  <Wifi className="w-4 h-4" />
+                  <Wifi className="w-3 h-3" />
                 ) : (
-                  <WifiOff className="w-4 h-4" />
+                  <WifiOff className="w-3 h-3" />
                 )}
-                <span className="text-xs font-medium">Box</span>
+                <span className="hidden sm:inline">Box</span>
               </div>
             </div>
           </div>
 
           {/* Progress Bar */}
           {currentProgress && (
-            <div className="mt-4 p-4 bg-primary/10 border border-primary/30 rounded-lg">
+            <div className="mt-3 p-3 bg-primary/10 border border-primary/20 rounded-lg">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm font-medium text-primary">
                   Drawing in progress...
@@ -486,23 +484,23 @@ const QueuePage = () => {
         </div>
 
         {/* Main Grid Layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-          {/* Queue List - Takes 8 columns */}
-          <div className="lg:col-span-8">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+          {/* Queue List - Takes 8 columns on desktop, full width on mobile */}
+          <div className="lg:col-span-8 order-2 lg:order-1">
             {items.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-20 text-center border-2 border-dashed border-base-300 rounded-xl bg-base-200/30">
-                <div className="w-16 h-16 rounded-full bg-base-300/50 flex items-center justify-center mb-4">
-                  <Package className="w-8 h-8 text-base-content/30" />
+              <div className="flex flex-col items-center justify-center py-12 md:py-20 text-center border-2 border-dashed border-base-300 rounded-lg bg-base-200/30">
+                <div className="w-12 h-12 md:w-16 md:h-16 rounded-full bg-base-300/50 flex items-center justify-center mb-3">
+                  <Package className="w-6 h-6 md:w-8 md:h-8 text-base-content/30" />
                 </div>
-                <h3 className="text-lg font-semibold text-base-content/60 mb-2">
+                <h3 className="text-base md:text-lg font-semibold text-base-content/60 mb-2">
                   Queue is Empty
                 </h3>
-                <p className="text-sm text-base-content/40">
+                <p className="text-xs md:text-sm text-base-content/40">
                   Add items from Image or Text mode to get started
                 </p>
               </div>
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-2">
                 <QueueList
                   items={items}
                   onDelete={handleDelete}
@@ -513,12 +511,12 @@ const QueuePage = () => {
             )}
           </div>
 
-          {/* Recovery Button - Right sidebar */}
-          <div className="lg:col-span-4 space-y-4">
+          {/* Controls sidebar - 4 columns on desktop, full width on mobile */}
+          <div className="lg:col-span-4 space-y-3 order-1 lg:order-2">
             {/* Pen Controls */}
-            <div className="bg-base-200 rounded-2xl p-6 shadow-xl border border-base-300">
-              <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                <Package className="w-5 h-5" />
+            <div className="bg-base-100 rounded-lg p-4 border border-base-300">
+              <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                <Package className="w-4 h-4" />
                 Pen Controls
               </h3>
               <PenButtons onQueueUpdate={fetchQueue} />
@@ -526,22 +524,20 @@ const QueuePage = () => {
 
             <RecoveryButton />
 
-            {/* Info Card */}
-            <div className="bg-base-200 rounded-2xl p-6 shadow-xl border border-base-300">
-              <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
-                <Package className="w-5 h-5" />
+            {/* Connection Info Card - Hidden on mobile */}
+            <div className="hidden lg:block bg-base-100 rounded-lg p-4 border border-base-300">
+              <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                <Package className="w-4 h-4" />
                 Connection Status
               </h3>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-base-content/70">
-                    CNC Connection:
-                  </span>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-base-content/70">CNC Connection:</span>
                   <div
-                    className={`flex items-center gap-2 px-2 py-1 rounded ${
+                    className={`flex items-center gap-1.5 px-2 py-1 rounded text-xs ${
                       cncConnected
-                        ? "bg-success/20 text-success"
-                        : "bg-error/20 text-error"
+                        ? "bg-success/10 text-success"
+                        : "bg-error/10 text-error"
                     }`}
                   >
                     {cncConnected ? (

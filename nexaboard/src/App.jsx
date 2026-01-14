@@ -40,16 +40,16 @@ export default function App() {
       // Ctrl+L (or Cmd+L on Mac)
       if ((e.ctrlKey || e.metaKey) && e.key === "l") {
         e.preventDefault();
-        
+
         // Automatically lock the system
         try {
           const response = await fetch(API_CONFIG.ENDPOINTS.SYSTEM_LOCK, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
           });
-          
+
           const data = await response.json();
-          
+
           if (data.success) {
             setIsSystemLocked(true);
             setIsLockModalOpen(true);
@@ -65,15 +65,28 @@ export default function App() {
   }, []);
 
   return (
-    <div className="flex h-screen">
+    <div className="flex h-screen overflow-hidden">
       {/* Lock indicator banner */}
       {isSystemLocked && (
-        <div className="fixed top-0 left-0 right-0 bg-error text-error-content py-1 px-4 text-center text-sm font-medium z-50 flex items-center justify-center gap-2">
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+        <div className="fixed top-0 left-0 right-0 bg-error text-error-content py-1.5 px-3 text-center text-xs md:text-sm font-medium z-50 flex items-center justify-center gap-2">
+          <svg
+            className="w-4 h-4"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+            />
           </svg>
-          System Locked - All operations are blocked
-          <button 
+          <span className="hidden sm:inline">
+            System Locked - All operations are blocked
+          </span>
+          <span className="sm:hidden">System Locked</span>
+          <button
             onClick={() => setIsLockModalOpen(true)}
             className="ml-2 underline hover:no-underline"
           >
@@ -83,7 +96,11 @@ export default function App() {
       )}
 
       <Sidebar onNavigate={setCurrentPage} currentPage={currentPage} />
-      <div className={`flex-1 ${isSystemLocked ? "mt-8" : ""}`}>
+      <div
+        className={`flex-1 overflow-hidden ${
+          isSystemLocked ? "mt-8 md:mt-7" : ""
+        }`}
+      >
         {currentPage === "dashboard" && <StatusPage />}
         {currentPage === "textMode" && <TextModePage />}
         {currentPage === "imageMode" && <ImagePage />}

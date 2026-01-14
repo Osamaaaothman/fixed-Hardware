@@ -11,6 +11,10 @@ import {
   Loader2,
   Circle,
   Eye,
+  FileText,
+  Pencil,
+  Copy,
+  Download,
 } from "lucide-react";
 
 const QueueItem = ({
@@ -23,6 +27,8 @@ const QueueItem = ({
   onDrop,
   draggable = true,
 }) => {
+  const [showGcodeModal, setShowGcodeModal] = useState(false);
+
   const formatTime = (timestamp) => {
     const date = new Date(timestamp);
     return date.toLocaleTimeString("en-US", {
@@ -35,28 +41,28 @@ const QueueItem = ({
     switch (status) {
       case "pending":
         return (
-          <div className="badge badge-ghost gap-2">
+          <div className="badge badge-sm badge-ghost gap-1">
             <Circle className="w-3 h-3" />
             Pending
           </div>
         );
       case "processing":
         return (
-          <div className="badge badge-info gap-2">
+          <div className="badge badge-sm badge-info gap-1">
             <Loader2 className="w-3 h-3 animate-spin" />
             Processing
           </div>
         );
       case "completed":
         return (
-          <div className="badge badge-success gap-2">
+          <div className="badge badge-sm badge-success gap-1">
             <CheckCircle2 className="w-3 h-3" />
             Completed
           </div>
         );
       case "failed":
         return (
-          <div className="badge badge-error gap-2">
+          <div className="badge badge-sm badge-error gap-1">
             <XCircle className="w-3 h-3" />
             Failed
           </div>
@@ -69,28 +75,46 @@ const QueueItem = ({
   const getTypeIcon = (type) => {
     switch (type) {
       case "image":
-        return <ImageIcon className="w-4 h-4" />;
+        return <ImageIcon className="w-5 h-5" />;
       case "text":
-        return <FileCode className="w-4 h-4" />;
+        return <FileText className="w-5 h-5" />;
       case "pen":
-        return (
-          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" />
-          </svg>
-        );
+        return <Pencil className="w-5 h-5" />;
       default:
-        return <FileCode className="w-4 h-4" />;
+        return <FileCode className="w-5 h-5" />;
+    }
+  };
+
+  const isPen = item.type === "pen";
+
+  const handleCopyGcode = () => {
+    if (item.gcode) {
+      navigator.clipboard.writeText(item.gcode.join("\n"));
+      toast.success("G-code copied to clipboard");
+    }
+  };
+
+  const handleDownloadGcode = () => {
+    if (item.gcode) {
+      const blob = new Blob([item.gcode.join("\n")], { type: "text/plain" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${item.name || "gcode"}.gcode`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success("G-code downloaded");
     }
   };
 
   return (
     <>
       <div
-        className={`group relative rounded-xl p-4 border-2 transition-all ${
-          item.type === "pen"
-            ? "bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/10 dark:to-pink-900/10 border-purple-300 dark:border-purple-700 hover:border-purple-400 dark:hover:border-purple-600"
-            : "bg-white dark:bg-base-200 border-base-300 hover:border-primary"
-        }`}
+        className={`bg-base-100 rounded-lg border hover:shadow-md transition-all ${
+          isPen
+            ? "border-l-4 border-l-primary border-r border-t border-b border-base-300"
+            : "border border-base-300"
+        } ${item.status === "processing" ? "ring-2 ring-primary" : ""}`}
         onDragOver={(e) => {
           e.preventDefault();
           if (onDragOver) onDragOver(e);
@@ -100,197 +124,207 @@ const QueueItem = ({
           if (onDrop) onDrop(e);
         }}
       >
-        {/* Status Indicator Bar */}
-        <div
-          className={`absolute top-0 left-0 w-1 h-full rounded-l-xl ${
-            item.type === "pen"
-              ? "bg-gradient-to-b from-purple-500 to-pink-500"
-              : item.status === "completed"
-              ? "bg-success"
-              : item.status === "processing"
-              ? "bg-info"
-              : item.status === "failed"
-              ? "bg-error"
-              : "bg-base-300"
-          }`}
-        ></div>
+        <div className="p-3">
+          {/* Header */}
+          <div className="flex items-start justify-between gap-2 mb-3">
+            <div className="flex items-center gap-2 flex-1 min-w-0">
+              {/* Drag Handle */}
+              {draggable && item.status === "pending" && (
+                <div
+                  className="cursor-grab active:cursor-grabbing text-base-content/20 hover:text-primary transition-colors"
+                  draggable={true}
+                  onDragStart={(e) => {
+                    e.stopPropagation();
+                    if (onDragStart) onDragStart(e);
+                  }}
+                  onDragEnd={(e) => {
+                    e.stopPropagation();
+                    if (onDragEnd) onDragEnd(e);
+                  }}
+                  onMouseDown={(e) => e.stopPropagation()}
+                >
+                  <GripVertical className="w-4 h-4" />
+                </div>
+              )}
 
-        <div className="flex items-center gap-4 pl-2">
-          {/* Drag Handle */}
-          {draggable && item.status === "pending" && (
-            <div
-              className="cursor-grab active:cursor-grabbing text-base-content/20 hover:text-primary transition-colors"
-              draggable={true}
-              onDragStart={(e) => {
-                e.stopPropagation();
-                if (onDragStart) onDragStart(e);
-              }}
-              onDragEnd={(e) => {
-                e.stopPropagation();
-                if (onDragEnd) onDragEnd(e);
-              }}
-              onMouseDown={(e) => e.stopPropagation()}
-            >
-              <GripVertical className="w-5 h-5" />
+              {/* Icon */}
+              <div
+                className={`p-2 rounded ${
+                  isPen ? "bg-primary/10 text-primary" : "bg-base-200"
+                }`}
+              >
+                {getTypeIcon(item.type)}
+              </div>
+
+              {/* Info */}
+              <div className="flex-1 min-w-0">
+                <h3 className="font-semibold text-sm truncate">
+                  {isPen
+                    ? item.name || "Pen Drawing"
+                    : item.type === "image"
+                    ? "Image"
+                    : item.type === "text"
+                    ? "Text"
+                    : "Drawing"}
+                </h3>
+                <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                  <span className="badge badge-xs">
+                    {isPen ? item.penType || "pen" : item.type}
+                  </span>
+                  {getStatusBadge(item.status)}
+                  <span className="text-xs text-base-content/50">
+                    {formatTime(item.timestamp)}
+                  </span>
+                </div>
+              </div>
             </div>
-          )}
+
+            {/* Delete Button */}
+            <button
+              onClick={() => onDelete(item.id)}
+              className="btn btn-xs btn-ghost btn-circle text-error"
+              disabled={item.status === "processing"}
+            >
+              <Trash2 size={14} />
+            </button>
+          </div>
 
           {/* Preview Image */}
           {item.processedImage && (
-            <div className="flex-shrink-0">
+            <div className="mb-3">
               <img
                 src={item.processedImage}
                 alt="Preview"
-                className="w-20 h-20 object-cover rounded-lg border-2 border-base-300"
+                className="w-full h-24 object-cover rounded border border-base-300"
               />
             </div>
           )}
 
-          {/* Content */}
-          <div className="flex-1 min-w-0">
-            <div className="flex items-start justify-between gap-2 mb-2">
-              <div className="flex items-center gap-2">
-                <div
-                  className={`p-1.5 rounded-lg ${
-                    item.type === "pen"
-                      ? "bg-gradient-to-br from-purple-100 to-pink-100 dark:from-purple-900/30 dark:to-pink-900/30 text-purple-600 dark:text-purple-400"
-                      : item.type === "image"
-                      ? "bg-purple-100 dark:bg-purple-900/20"
-                      : "bg-blue-100 dark:bg-blue-900/20"
-                  }`}
-                >
-                  {getTypeIcon(item.type)}
-                </div>
-                <div>
-                  <h3
-                    className={`font-semibold text-sm ${
-                      item.type === "pen"
-                        ? "text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-pink-600 dark:from-purple-400 dark:to-pink-400"
-                        : "text-base-content"
-                    }`}
-                  >
-                    {item.type === "pen"
-                      ? item.name || "Pen Drawing"
-                      : item.type === "image"
-                      ? "Image"
-                      : item.type === "text"
-                      ? "Text"
-                      : "Drawing"}
-                  </h3>
-                  <p className="text-xs text-base-content/50">
-                    {formatTime(item.timestamp)}
-                  </p>
-                </div>
-              </div>
-
-              {/* Status Badge - Minimal */}
-              {item.status === "processing" && (
-                <div className="flex items-center gap-1 text-info text-xs font-medium">
-                  <Loader2 className="w-3 h-3 animate-spin" />
-                  <span>Processing</span>
+          {/* Stats */}
+          {item.stats && (
+            <div className="grid grid-cols-2 gap-2 mb-3 text-xs">
+              {(item.stats.totalLines || item.stats.lines) && (
+                <div className="flex items-center gap-1.5 text-base-content/70">
+                  <FileCode className="w-3.5 h-3.5" />
+                  <span>{item.stats.totalLines || item.stats.lines} lines</span>
                 </div>
               )}
-              {item.status === "completed" && (
-                <div className="flex items-center gap-1 text-success text-xs font-medium">
-                  <CheckCircle2 className="w-3 h-3" />
-                </div>
-              )}
-              {item.status === "failed" && (
-                <div className="flex items-center gap-1 text-error text-xs font-medium">
-                  <XCircle className="w-3 h-3" />
+              {item.stats.estimatedTime && (
+                <div className="flex items-center gap-1.5 text-base-content/70">
+                  <Clock className="w-3.5 h-3.5" />
+                  <span>{item.stats.estimatedTime}</span>
                 </div>
               )}
             </div>
+          )}
 
-            {/* Stats Row */}
-            {item.stats && (
-              <div className="flex items-center gap-4 text-xs text-base-content/60 mb-3">
-                {item.type === "pen" && (
-                  <div className="flex items-center gap-1.5 text-purple-600 dark:text-purple-400 font-medium">
-                    <svg
-                      className="w-3.5 h-3.5"
-                      fill="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" />
-                    </svg>
-                    <span>{item.penType || "Pen Mode"}</span>
-                  </div>
-                )}
-                {item.stats.totalLines && (
-                  <div className="flex items-center gap-1.5">
-                    <FileCode className="w-3.5 h-3.5" />
-                    <span>{item.stats.totalLines} lines</span>
-                  </div>
-                )}
-                {item.stats.lines && !item.stats.totalLines && (
-                  <div className="flex items-center gap-1.5">
-                    <FileCode className="w-3.5 h-3.5" />
-                    <span>{item.stats.lines} lines</span>
-                  </div>
-                )}
-                {item.stats.estimatedTime && (
-                  <div className="flex items-center gap-1.5">
-                    <Clock className="w-3.5 h-3.5" />
-                    <span>{item.stats.estimatedTime}</span>
-                  </div>
-                )}
+          {/* Progress Bar */}
+          {item.status === "processing" && item.stats?.totalLines && (
+            <div className="mb-3">
+              <div className="flex items-center justify-between text-xs mb-1">
+                <span className="text-base-content/60">Progress</span>
+                <span className="font-medium">
+                  {Math.round((item.currentLine / item.stats.totalLines) * 100)}
+                  %
+                </span>
               </div>
-            )}
-
-            {/* Processing Progress */}
-            {item.status === "processing" && item.stats?.totalLines && (
-              <div className="mb-3">
-                <div className="flex items-center justify-between text-xs mb-1.5">
-                  <span className="text-base-content/60">Progress</span>
-                  <span className="text-base-content/60 font-medium">
-                    {Math.round(
-                      (item.currentLine / item.stats.totalLines) * 100
-                    )}
-                    %
-                  </span>
-                </div>
-                <div className="w-full bg-base-300 rounded-full h-1.5 overflow-hidden">
-                  <div
-                    className="bg-info h-full transition-all duration-300"
-                    style={{
-                      width: `${
-                        (item.currentLine / item.stats.totalLines) * 100
-                      }%`,
-                    }}
-                  ></div>
-                </div>
-              </div>
-            )}
-
-            {/* Error Message */}
-            {item.error && (
-              <div className="mb-3 p-2 bg-error/10 border border-error/20 rounded-lg text-xs text-error">
-                {item.error}
-              </div>
-            )}
-
-            {/* Actions */}
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => onViewGcode && onViewGcode(item)}
-                className="text-xs text-primary hover:underline flex items-center gap-1"
-              >
-                <Eye className="w-3 h-3" />
-                View Code
-              </button>
-              <button
-                onClick={() => onDelete(item.id)}
-                className="text-xs text-error hover:underline flex items-center gap-1"
-                disabled={item.status === "processing"}
-              >
-                <Trash2 className="w-3 h-3" />
-                Delete
-              </button>
+              <progress
+                className="progress progress-primary w-full"
+                value={item.currentLine}
+                max={item.stats.totalLines}
+              ></progress>
             </div>
+          )}
+
+          {/* Error Message */}
+          {item.error && (
+            <div className="alert alert-error mb-3 py-2 text-xs">
+              <XCircle size={14} />
+              <span>{item.error}</span>
+            </div>
+          )}
+
+          {/* Actions */}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowGcodeModal(true)}
+              className="btn btn-xs btn-ghost gap-1"
+            >
+              <Eye size={14} />
+              View
+            </button>
+            <button
+              onClick={handleCopyGcode}
+              className="btn btn-xs btn-ghost gap-1"
+            >
+              <Copy size={14} />
+              Copy
+            </button>
           </div>
         </div>
       </div>
+
+      {/* G-code Modal */}
+      {showGcodeModal && (
+        <dialog className="modal modal-open">
+          <div className="modal-box max-w-3xl">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="font-bold text-lg">G-code Preview</h3>
+                <p className="text-sm text-base-content/60 mt-1">
+                  {item.name || item.type} • {item.gcode?.length || 0} lines
+                </p>
+              </div>
+              <button
+                onClick={() => setShowGcodeModal(false)}
+                className="btn btn-sm btn-circle btn-ghost"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* G-code Content */}
+            <div className="bg-base-200 rounded-lg p-4 max-h-96 overflow-y-auto font-mono text-sm mb-4">
+              {item.gcode?.map((line, i) => (
+                <div
+                  key={i}
+                  className="flex gap-3 hover:bg-base-300 px-2 py-0.5 rounded"
+                >
+                  <span className="text-base-content/40 select-none w-12 text-right shrink-0">
+                    {i + 1}
+                  </span>
+                  <span className="text-base-content">{line}</span>
+                </div>
+              ))}
+            </div>
+
+            {/* Modal Actions */}
+            <div className="flex items-center justify-end gap-2">
+              <button onClick={handleCopyGcode} className="btn btn-sm gap-2">
+                <Copy size={16} />
+                Copy All
+              </button>
+              <button
+                onClick={handleDownloadGcode}
+                className="btn btn-sm gap-2"
+              >
+                <Download size={16} />
+                Download
+              </button>
+              <button
+                onClick={() => setShowGcodeModal(false)}
+                className="btn btn-sm btn-primary"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+          <form method="dialog" className="modal-backdrop">
+            <button onClick={() => setShowGcodeModal(false)}>close</button>
+          </form>
+        </dialog>
+      )}
     </>
   );
 };
