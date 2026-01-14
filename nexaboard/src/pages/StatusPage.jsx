@@ -295,35 +295,34 @@ const StatusPage = () => {
       });
     }
   };
-  
+
   const handleScreenshot = async (skipModeActivation = false) => {
     const toastId = toast.loading(
       skipModeActivation
-      ? "Capturing screenshot from hardware..."
-      : "Activating screenshot mode..."
+        ? "Capturing screenshot from hardware..."
+        : "Activating screenshot mode..."
     );
-    
+
     let screenshotModeActivated = skipModeActivation;
-    
+
     try {
-      // Check if Box is connected before proceeding
-      if (!boxStatus.connected) {
-        toast.error("Box is not connected. Please connect to Box first.", {
-          id: toastId,
-        });
-        return;
-      }
-      
       // Only send screenshot command if triggered from app (not hardware)
-      if (true) {
-        console.log("here");
+      if (!skipModeActivation) {
+        // Check if Box is connected before proceeding
+        if (!boxStatus.connected) {
+          toast.error("Box is not connected. Please connect to Box first.", {
+            id: toastId,
+          });
+          return;
+        }
+
+        console.log("Activating screenshot mode on Box...");
         try {
           await sendBoxCommand("screenshot");
           screenshotModeActivated = true;
           // Wait for the Box to show camera icon/flash animation (500ms)
           await new Promise((resolve) => setTimeout(resolve, 500));
           await sendBoxCommand("exit_screenshot");
-          
         } catch (cmdError) {
           console.error("Failed to activate screenshot mode:", cmdError);
           toast.error("Failed to activate screenshot mode on Box", {
@@ -354,9 +353,12 @@ const StatusPage = () => {
         toast.success("Screenshot captured successfully!", { id: toastId });
       } catch (captureError) {
         console.error("Camera capture failed (continuing):", captureError);
-        toast.warning("Screenshot mode activated, but camera capture failed. Check camera connection.", {
-          id: toastId,
-        });
+        toast.warning(
+          "Screenshot mode activated, but camera capture failed. Check camera connection.",
+          {
+            id: toastId,
+          }
+        );
       }
 
       // Return to MENU mode after 500ms
@@ -380,10 +382,7 @@ const StatusPage = () => {
         try {
           await sendBoxCommand("ready");
         } catch (exitError) {
-          console.error(
-            "Failed to return to menu after error:",
-            exitError
-          );
+          console.error("Failed to return to menu after error:", exitError);
         }
       }
     }
