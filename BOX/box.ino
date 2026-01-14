@@ -9,7 +9,7 @@
 #include <avr/power.h>
 /* --------------------- Pins & HW --------------------- */
 #define TFT_CS   10
-#define TFT_DC    9 
+#define TFT_DC    9
 #define TFT_RST   8
 #define TRIG      2
 #define ECHO      3
@@ -64,7 +64,7 @@ public:
     for (uint8_t i = 0; i < length; i++) tft.print('*');
   }
 
-void showModeMenu(int page) {
+ void showModeMenu(int page = 1) {
   clear();
   drawTitle("Select Mode");
 
@@ -72,34 +72,30 @@ void showModeMenu(int page) {
   tft.setTextSize(2);
 
   if (page == 1) {
-    tft.setCursor(40, 90);  tft.println("1: Pen 1");
-    tft.setCursor(40, 120); tft.println("2: Pen 2");
-    tft.setCursor(40, 150); tft.println("3: Erasing Pen");
-
-    tft.setCursor(40, 210); tft.println("A: Next Page");
-  } 
+    tft.setCursor(40, 90);  tft.println("1: pen1");
+    tft.setCursor(40, 120); tft.println("2: pen2");
+    tft.setCursor(40, 150); tft.println("3: Erasing pen");
+    tft.setCursor(40, 200); tft.println("A: Next Page");
+  }
   else if (page == 2) {
-    tft.setCursor(40, 90);  tft.println("4: Writing");
-    tft.setCursor(40, 120); tft.println("5: Erasing");
-    tft.setCursor(40, 150); tft.println("6: Screenshot");
-
+    tft.setCursor(40, 80);  tft.println("4: drawing");
+    tft.setCursor(40, 110); tft.println("5: erasing");
+    tft.setCursor(40, 140); tft.println("6: screenshot");
+    tft.setCursor(40, 170); tft.println("3: exiting");
     tft.setCursor(40, 210); tft.println("B: Prev Page");
   }
 
-  // زر الخروج الثابت
-  tft.setTextColor(ST77XX_RED);
-  tft.setCursor(40, 250);
-  tft.println("D: EXIT");
-
-  // مؤشر الصفحة
+  // عرض مؤشر الصفحة
   tft.setTextSize(1);
   tft.setTextColor(ST77XX_YELLOW);
+  char pageText[10];
+  sprintf(pageText, "Page %d/2", page);
   tft.setCursor(200, 10);
-  tft.print("Page ");
-  tft.print(page);
-  tft.print("/2");
-}
+  tft.print(pageText);
 
+  Serial.print("[Display] mode menu page ");
+  Serial.println(page);
+}
 
 
    void successAnimation() {
@@ -232,41 +228,6 @@ void showModeMenu(int page) {
     Serial.print("[RGB] effect end: ");
     Serial.println(mode);
   }
-
-
-  void queueEmptyAnimation() {
-  clear();
-
-
-  int centerX = tft.width() / 2;
-  int centerY = 100;
-
-  tft.drawRect(centerX - 40, centerY - 30, 80, 60, ST77XX_YELLOW);
-  tft.drawLine(centerX - 40, centerY - 30,
-               centerX, centerY - 60, ST77XX_YELLOW);
-  tft.drawLine(centerX + 40, centerY - 30,
-               centerX, centerY - 60, ST77XX_YELLOW);
-  tft.drawLine(centerX, centerY - 60,
-               centerX - 40, centerY - 30, ST77XX_YELLOW);
-  tft.drawLine(centerX, centerY - 60,
-               centerX + 40, centerY - 30, ST77XX_YELLOW);
-
-  // Text
-  tft.setTextColor(ST77XX_WHITE);
-  tft.setTextSize(2);
-  centerText("QUEUE IS EMPTY", 170);
-
- 
-  for (int i = 0; i < 3; i++) {
-    setRGB(255, 255, 0);
-    delay(200);
-    setRGB(0, 0, 0);
-    delay(200);
-  }
-
-  delay(800);
-}
-
 
   void sendCommand(uint8_t cmd) {
     digitalWrite(TFT_DC, LOW);
@@ -739,7 +700,7 @@ public:
   const unsigned long timeoutMs = 30000UL;
   String status = "";
  String inputNumber = "";
-int currentMenuPage = 1;
+
  enum ActiveMode {
   MODE_NONE,
   MODE_PEN1,
@@ -770,7 +731,6 @@ NexaBoardSystem():modes(display, keypad),dfplayer(Serial1) {
     dfplayer.playSound(1,23);
     display.begin();
     rfidManager.begin();
-    currentMenuPage = 1;
     loginStage = WAIT_RFID;
     loggedIn = false;
     inputPassword = "";
@@ -811,7 +771,7 @@ void handleServerCommand(String cmd) {
         return;
     }
 
-    
+    // حراسة: منع تشغيل مود جديد فوق مود شغال
     if (currentMode != MODE_NONE) {
         if (
             cmd == "exiting" || cmd == "locked" || cmd == "ready" ||
@@ -822,7 +782,7 @@ void handleServerCommand(String cmd) {
             (cmd == "exit_erasing"     && currentMode == MODE_ERASING) ||
             (cmd == "exit_screenshot"  && currentMode == MODE_SCREENSHOT)
         ) {
-            
+            // كمّل تنفيذ الأوامر المسموحة
         } else {
             Serial.println("[Server] Ignored: cannot start new mode while another mode is running");
             return;
@@ -835,7 +795,7 @@ void handleServerCommand(String cmd) {
         sendStatusToServer("MODE_PEN1");
         modes.pen1Mode(exitModeRequested);
         currentMode = MODE_NONE;
-      display.showModeMenu(currentMenuPage);
+        display.showModeMenu();
     }
     else if (cmd == "pen2") {
         currentMode = MODE_PEN2;
@@ -843,7 +803,7 @@ void handleServerCommand(String cmd) {
         sendStatusToServer("MODE_PEN2");
         modes.pen2Mode(exitModeRequested);
         currentMode = MODE_NONE;
-  display.showModeMenu(currentMenuPage);
+        display.showModeMenu();
     }
     else if (cmd == "erasing_pen") {
         currentMode = MODE_ERASING_PEN;
@@ -851,7 +811,7 @@ void handleServerCommand(String cmd) {
         sendStatusToServer("MODE_ERASING_PEN");
         modes.erasingPenMode(exitModeRequested);
         currentMode = MODE_NONE;
-      display.showModeMenu(currentMenuPage);
+        display.showModeMenu();
     }
     else if (cmd == "writing") {
         currentMode = MODE_WRITING;
@@ -859,7 +819,7 @@ void handleServerCommand(String cmd) {
         sendStatusToServer("MODE_WRITING");
         modes.writingMode(exitModeRequested);
         currentMode = MODE_NONE;
-       display.showModeMenu(currentMenuPage);
+        display.showModeMenu();
     }
     else if (cmd == "erasing") {
         currentMode = MODE_ERASING;
@@ -867,7 +827,7 @@ void handleServerCommand(String cmd) {
         sendStatusToServer("MODE_ERASING");
         modes.erasingMode(exitModeRequested);
         currentMode = MODE_NONE;
-       display.showModeMenu(currentMenuPage);
+        display.showModeMenu();
     }
     else if (cmd == "screenshot") {
         currentMode = MODE_SCREENSHOT;
@@ -875,24 +835,8 @@ void handleServerCommand(String cmd) {
         sendStatusToServer("SCREENSHOT_REQUEST");
         modes.screenshotMode(exitModeRequested);
         currentMode = MODE_NONE;
-       display.showModeMenu(currentMenuPage);
+        display.showModeMenu();
     }
-
-    else if (cmd == "queue_empty") {
-    Serial.println("[Server] Queue is empty");
-
- 
-    if (currentMode != MODE_NONE) {
-        Serial.println("[Server] Ignored queue_empty (mode running)");
-        return;
-    }
-
-    display.queueEmptyAnimation();
-  display.showModeMenu(currentMenuPage);
-
-    sendStatusToServer("QUEUE_EMPTY_SHOWN");
-}
-   
 
     else if (cmd == "exit_pen1" && currentMode == MODE_PEN1) {
         exitModeRequested = true;
@@ -1049,7 +993,7 @@ private:
               security.attempt = 0;
               sendStatusToServer("LOGIN_OK");
               loggedIn = true;
-              display.showModeMenu(currentMenuPage);
+              display.showModeMenu();
               Serial.println("[Login] loggedIn = true");
             } else {
               Serial.println("[Login] password incorrect");
@@ -1102,95 +1046,117 @@ private:
   }
 
  void handleModeSelection() {
-
+  
+  static int currentPage = 1; 
   char key = keypad.getKey();
   if (!key) return;
 
-  // منع الضغط السريع
-  static unsigned long lastPress = 0;
-  if (millis() - lastPress < 250) return;
-  lastPress = millis();
-
+  Serial.print("[ModeSelection] key=");
+  Serial.println(key);
   switch (key) {
-
-    // -------- PAGE 1 --------
     case '1':
-      if (currentMenuPage == 1) {
+      if (currentPage == 1) {
+        sendStatusToServer("MODE_PEN1");
+        exitModeRequested = false;
         currentMode = MODE_PEN1;
         modes.pen1Mode(exitModeRequested);
         currentMode = MODE_NONE;
+        display.showModeMenu(currentPage);
       }
       break;
 
     case '2':
-      if (currentMenuPage == 1) {
+      if (currentPage == 1) {
+        sendStatusToServer("MODE_PEN2");
+        exitModeRequested = false;
         currentMode = MODE_PEN2;
         modes.pen2Mode(exitModeRequested);
         currentMode = MODE_NONE;
+        display.showModeMenu(currentPage);
       }
       break;
 
     case '3':
-      if (currentMenuPage == 1) {
+      if (currentPage == 1) {
+        sendStatusToServer("MODE_ERASING_PEN");
+        exitModeRequested = false;
         currentMode = MODE_ERASING_PEN;
         modes.erasingPenMode(exitModeRequested);
         currentMode = MODE_NONE;
+        display.showModeMenu(currentPage);
+      }
+      else if (currentPage == 2) {
+        bool logoutRequested = false;
+        sendStatusToServer("LOGOUT");
+        modes.exitMode(logoutRequested);
+        loggedIn = false;
+        inputPassword = "";
+        security.attempt = 0;
+        loginStage = WAIT_RFID;
+
+        display.clear();
+        display.drawTitle("Nexa Board");
+        display.requestRFIDAnimation();
+        Serial.println("[ModeSelection] logged out, waiting for RFID");
+        lastActivityTime = millis();
       }
       break;
-
-    // -------- PAGE 2 --------
+    
     case '4':
-      if (currentMenuPage == 2) {
+      if (currentPage == 2) {
+        sendStatusToServer("MODE_WRITING");
+        exitModeRequested = false;
         currentMode = MODE_WRITING;
         modes.writingMode(exitModeRequested);
         currentMode = MODE_NONE;
+        display.showModeMenu(currentPage);
       }
       break;
 
     case '5':
-      if (currentMenuPage == 2) {
+      if (currentPage == 2) {
+        sendStatusToServer("MODE_ERASING");
+        exitModeRequested = false;
         currentMode = MODE_ERASING;
         modes.erasingMode(exitModeRequested);
         currentMode = MODE_NONE;
+        display.showModeMenu(currentPage);
       }
       break;
 
     case '6':
-      if (currentMenuPage == 2) {
+      if (currentPage == 2) {
+        sendStatusToServer("SCREENSHOT_REQUEST");
+        exitModeRequested = false;
         currentMode = MODE_SCREENSHOT;
         modes.screenshotMode(exitModeRequested);
         currentMode = MODE_NONE;
+        display.showModeMenu(currentPage);
+      }
+      break;
+    
+    case 'B':
+      if (currentPage > 1) {
+        currentPage--;
+        display.showModeMenu(currentPage);
+        Serial.println("[ModeSelection] previous page");
       }
       break;
 
-    // -------- NAVIGATION --------
     case 'A':
-      if (currentMenuPage < 2) currentMenuPage++;
+      if (currentPage < 2) {
+        currentPage++;
+        display.showModeMenu(currentPage);
+        Serial.println("[ModeSelection] next page");
+      }
       break;
-
-    case 'B':
-      if (currentMenuPage > 1) currentMenuPage--;
-      break;
-
-    // -------- EXIT --------
-    case 'D':
-      loggedIn = false;
-      inputPassword = "";
-      security.reset();
-      loginStage = WAIT_RFID;
-      currentMenuPage = 1;
-
-      display.clear();
-      display.drawTitle("Nexa Board");
-      display.requestRFIDAnimation();
-      return;
 
     default:
-      return;
+      Serial.println("[ModeSelection] unknown key");
+      break;
   }
-
-  display.showModeMenu(currentMenuPage);
 }
+
 };
 
 /* =====================================================
@@ -1218,6 +1184,12 @@ void ModeHandler::writingMode(bool &exitRequested) {
 
     for (int x = 20; x < 220 && !exitRequested; x += 10) {
       if (system) system->checkServerCommands();
+      char keyInner = keypad.getKey();
+      if (keyInner == '#') {
+        exitRequested = true;
+        break;
+      }
+
       display.tft.drawLine(20, y, x, y, ST77XX_CYAN);
       delay(50);
     }
@@ -1241,7 +1213,7 @@ void ModeHandler::erasingMode(bool &exitRequested) {
   int y = 160;
 
   while (!exitRequested) {
-   
+    // قراءة أوامر السيرفر
     if (system) system->checkServerCommands();
     
     char key = keypad.getKey();
@@ -1277,103 +1249,97 @@ void ModeHandler::erasingMode(bool &exitRequested) {
 void ModeHandler::pen1Mode(bool &exitRequested) {
   display.clear();
   display.drawTitle("Pen1 Mode");
-  display.centerText("# or Server: exit", 280);
+  display.centerText("Server: exit", 280);
 
-  int x = 20;
   int y = 120;
-  int dx = 4;
-
-  uint16_t color = ST77XX_CYAN;
+  int colorIndex = 0;
+  uint16_t colors[] = {ST77XX_RED, ST77XX_GREEN, ST77XX_BLUE, ST77XX_YELLOW, ST77XX_MAGENTA, ST77XX_CYAN};
 
   while (!exitRequested) {
     if (system) system->checkServerCommands();
-    if (keypad.getKey() == '#') break;
+    display.rgbEffect("writing", 10);
 
-    display.tft.fillCircle(x, y, 3, color);
-    x += dx;
-
-    if (x >= 220 || x <= 20) {
-      dx = -dx;
-      y += 12;
-      if (y > 200) y = 90;
+    for (int x = 20; x < 220 && !exitRequested; x += 8) {
+      if (system) system->checkServerCommands();
+      display.tft.fillCircle(x, y, 3, colors[colorIndex % 6]);
+      delay(30);
     }
-
-    delay(15);
+    
+    y += 10;
+    if (y > 200) y = 80;
+    colorIndex++;
   }
 
   exitRequested = false;
   display.clear();
-  display.drawTitle("Pen1 Done");
-  delay(500);
+  display.drawTitle("Done Pen1");
+  Serial.println("MODE_READY");
+  delay(600);
 }
-
 
 void ModeHandler::pen2Mode(bool &exitRequested) {
   display.clear();
   display.drawTitle("Pen2 Mode");
-  display.centerText("# or Server: exit", 280);
+  display.centerText("Server: exit", 280);
 
-  int cx = 120;
-  int cy = 120;
-  float angle = 0;
-  float radius = 5;
+  int centerX = 120;
+  int centerY = 120;
+  int radius = 10;
 
   while (!exitRequested) {
     if (system) system->checkServerCommands();
-    if (keypad.getKey() == '#') break;
+    display.rgbEffect("writing", 10);
 
-    int x = cx + cos(angle) * radius;
-    int y = cy + sin(angle) * radius;
-
-    display.tft.fillCircle(x, y, 2, ST77XX_MAGENTA);
-
-    angle += 0.15;
-    radius += 0.05;
-    if (radius > 60) radius = 5;
-
-    delay(12);
+    for (int angle = 0; angle < 360 && !exitRequested; angle += 15) {
+      if (system) system->checkServerCommands();
+      float rad = angle * 3.14159 / 180.0;
+      int x = centerX + radius * cos(rad);
+      int y = centerY + radius * sin(rad);
+      
+      display.tft.fillCircle(x, y, 2, ST77XX_CYAN);
+      delay(25);
+    }
+    
+    radius += 10;
+    if (radius > 60) radius = 10;
   }
 
   exitRequested = false;
   display.clear();
-  display.drawTitle("Pen2 Done");
-  delay(500);
+  display.drawTitle("Done Pen2");
+  Serial.println("MODE_READY");
+  delay(600);
 }
-
 
 void ModeHandler::erasingPenMode(bool &exitRequested) {
   display.clear();
   display.drawTitle("Erasing Pen");
-  display.centerText("# or Server: exit", 280);
+  display.centerText("Server: exit", 280);
 
-  int x = 20;
-  int y = 100;
-  int dx = 6;
+  int y = 120;
 
   while (!exitRequested) {
     if (system) system->checkServerCommands();
-    if (keypad.getKey() == '#') break;
+    display.rgbEffect("erasing", 15);
 
-    // شكل ممحاة
-    display.tft.fillRoundRect(x - 8, y - 8, 16, 16, 4, ST77XX_BLACK);
-    display.tft.drawRoundRect(x - 8, y - 8, 16, 16, 4, ST77XX_RED);
-
-    x += dx;
-    if (x >= 220 || x <= 20) {
-      dx = -dx;
-      y += 15;
-      if (y > 200) y = 90;
+    for (int x = 0; x < 240 && !exitRequested; x += 15) {
+      if (system) system->checkServerCommands();
+      display.tft.fillCircle(x, y, 8, ST77XX_BLACK);
+      display.tft.drawCircle(x, y, 8, ST77XX_RED);
+      delay(40);
+      display.tft.fillCircle(x, y, 8, ST77XX_BLACK);
     }
-
-    delay(20);
+    
+    y += 15;
+    if (y > 200) y = 80;
   }
 
   exitRequested = false;
   display.clear();
-  display.drawTitle("Erase Done");
-  delay(500);
+  display.drawTitle("Done Erasing");
+  Serial.println("MODE_READY");
+  delay(600);
 }
-
 
 void ModeHandler::screenshotMode(bool &exitRequested) {
   display.clear();
