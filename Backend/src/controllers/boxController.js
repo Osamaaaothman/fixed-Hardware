@@ -406,14 +406,18 @@ const parseBoxMessage = (message, io) => {
         io
       );
 
-      // Check if this was triggered by software (not hardware button)
+      // Check if this was triggered by software "Writing" button (not hardware button or Draw Now)
       const writingNow = Date.now();
       const writingIsSoftwareTriggered =
         lastSoftwareCommand === "writing" &&
         writingNow - lastSoftwareCommandTime < COMMAND_TIMEOUT;
 
+      // Only auto-process queue if triggered by the "Writing" button command
+      // NOT when triggered by /serial/send (Draw Now button) which handles G-code directly
       if (writingIsSoftwareTriggered && io) {
-        console.log("[BOX] Software writing mode - auto-processing queue");
+        console.log(
+          "[BOX] Software Writing button clicked - auto-processing queue"
+        );
 
         // Auto-process queue when software triggers writing mode
         (async () => {

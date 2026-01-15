@@ -67,12 +67,19 @@ router.post("/send", async (req, res) => {
   } = req.body;
 
   if (!gcode) {
+    console.log("[SERIAL/SEND] Error: No G-code provided");
     return res.status(400).json({ error: "No G-code provided" });
   }
 
+  console.log("[SERIAL/SEND] Received G-code transmission request");
+  console.log("[SERIAL/SEND] Using persistent connection:", usePersistent);
+  console.log("[SERIAL/SEND] Persistent port available:", !!persistentPort);
+  console.log("[SERIAL/SEND] Persistent port open:", persistentPort?.isOpen);
+  console.log("[SERIAL/SEND] Persistent connected:", persistentConnected);
+
   // CRITICAL: Prevent multiple simultaneous draws
   if (isDrawing) {
-    console.log("[SERIAL] Rejecting draw request - already drawing");
+    console.log("[SERIAL/SEND] Rejecting draw request - already drawing");
     return res.status(409).json({
       error:
         "A drawing operation is already in progress. Please wait for it to complete.",
