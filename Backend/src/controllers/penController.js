@@ -98,9 +98,15 @@ router.post("/execute/:penType", async (req, res) => {
     let currentLine = 0;
     let waitingForResponse = false;
 
+    let isComplete = false;
+
     const sendNextLine = () => {
+      if (isComplete) return; // Prevent multiple executions
+
       if (currentLine >= lines.length) {
         console.log(`[PEN] ${penType} execution complete`);
+        isComplete = true;
+        serialParser.removeListener("data", responseHandler);
         if (boxPort && boxPort.isOpen) boxPort.write(`exit_${penType}\n`);
         if (io)
           io.emit("pen:complete", {
@@ -130,6 +136,8 @@ router.post("/execute/:penType", async (req, res) => {
     };
 
     const responseHandler = (data) => {
+      if (isComplete) return; // Ignore responses after completion
+
       const response = data.trim();
       if (response === "ok" || response.startsWith("ok")) {
         waitingForResponse = false;
@@ -141,12 +149,18 @@ router.post("/execute/:penType", async (req, res) => {
       }
     };
 
+    // Remove all previous listeners to prevent duplicate execution
+    serialParser.removeAllListeners("data");
     serialParser.on("data", responseHandler);
     sendNextLine();
-    setTimeout(
-      () => serialParser.removeListener("data", responseHandler),
-      120000
-    );
+
+    // Cleanup after 2 minutes
+    setTimeout(() => {
+      if (!isComplete) {
+        serialParser.removeListener("data", responseHandler);
+        isComplete = true;
+      }
+    }, 120000);
 
     res.json({
       success: true,
