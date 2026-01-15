@@ -187,35 +187,8 @@ async function processQueueItem(
     item.processingEndTime = Date.now();
     item.completedAt = new Date().toISOString();
 
-    // Return Box to ready/menu mode after drawing
-    if (boxPort && boxPort.isOpen && boxModeChanged) {
-      try {
-        let exitCommand = "exit_writing";
-        if (item.type === "pen" && item.penType) {
-          exitCommand = `exit_${item.penType}`; // exit_pen1, exit_pen2, or exit_erasing_pen
-        }
-
-        await sendBoxCommand(boxPort, exitCommand);
-        console.log(
-          `[QUEUE] Box exited mode with ${exitCommand}, returned to menu`
-        );
-
-        // Emit socket event
-        if (io) {
-          io.emit("box:mode-changed", {
-            mode: "READY",
-            reason: "queue-completed",
-            timestamp: Date.now(),
-          });
-        }
-      } catch (boxError) {
-        console.error(
-          "[QUEUE] Warning: Failed to exit Box writing mode:",
-          boxError
-        );
-        // Continue anyway
-      }
-    }
+    // NOTE: Do NOT exit writing mode here - let the queue processor handle it
+    // after ALL items are processed. Exiting here would interrupt multi-item queues.
 
     // Close serial port only if not using persistent connection
     if (serialPort && serialPort.isOpen && !usingPersistent) {
@@ -412,24 +385,40 @@ export async function startQueueProcessing(
       `[QUEUE] Processing finished: ${results.completed} completed, ${results.failed} failed`
     );
 
-    // Check if queue is now empty and notify Box
-    if (nexaboard.queue.isEmpty() && boxPort && boxPort.isOpen) {
+    // Return Box to menu after all queue processing is complete
+    if (boxPort && boxPort.isOpen) {
       try {
-        await sendBoxCommand(boxPort, "queue_empty");
-        console.log("[QUEUE] Sent queue_empty command to Box");
+        // First exit writing mode to return to menu
+        await sendBoxCommand(boxPort, "exit_writing");
+        console.log("[QUEUE] Box exited writing mode, returned to menu");
 
-        // Wait 2 seconds for the animation to display
-        await new Promise((resolve) => setTimeout(resolve, 2000));
+        // Wait a moment for Box to process
+        await new Promise((resolve) => setTimeout(resolve, 500));
 
         // Emit socket event
         if (io) {
-          io.emit("box:queue-empty", {
+          io.emit("box:mode-changed", {
+            mode: "MENU",
+            reason: "queue-finished",
             timestamp: Date.now(),
           });
         }
+
+        // If queue is empty, also send queue_empty for animation
+        if (nexaboard.queue.isEmpty()) {
+          await sendBoxCommand(boxPort, "ready");
+          console.log("[QUEUE] Box returned to ready state");
+
+          // Emit socket event
+          if (io) {
+            io.emit("box:queue-complete", {
+              timestamp: Date.now(),
+            });
+          }
+        }
       } catch (boxError) {
         console.error(
-          "[QUEUE] Warning: Failed to send queue_empty to Box:",
+          "[QUEUE] Warning: Failed to return Box to menu:",
           boxError
         );
       }
