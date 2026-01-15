@@ -68,7 +68,6 @@ const StatusPage = () => {
   const [showBoxPortSelector, setShowBoxPortSelector] = useState(false);
 
   // System state
-  const [systemLocked, setSystemLocked] = useState(false);
   const [socket, setSocket] = useState(null);
 
   // Refs for auto-scroll
@@ -682,17 +681,31 @@ const StatusPage = () => {
             {/* Header */}
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
-                <div className={`p-2 rounded-lg ${boxStatus.connected ? 'bg-success/20' : 'bg-error/20'}`}>
-                  <BoxIcon className={`w-5 h-5 ${boxStatus.connected ? 'text-success' : 'text-error'}`} />
+                <div
+                  className={`p-2 rounded-lg ${
+                    boxStatus.connected ? "bg-success/20" : "bg-error/20"
+                  }`}
+                >
+                  <BoxIcon
+                    className={`w-5 h-5 ${
+                      boxStatus.connected ? "text-success" : "text-error"
+                    }`}
+                  />
                 </div>
                 <div>
                   <h3 className="text-lg font-bold">Box Controller</h3>
-                  <p className="text-xs text-base-content/60">Hardware Interface</p>
+                  <p className="text-xs text-base-content/60">
+                    Hardware Interface
+                  </p>
                 </div>
               </div>
-              <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full ${
-                boxStatus.connected ? 'bg-success/20 text-success' : 'bg-error/20 text-error'
-              }`}>
+              <div
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full ${
+                  boxStatus.connected
+                    ? "bg-success/20 text-success"
+                    : "bg-error/20 text-error"
+                }`}
+              >
                 {boxStatus.connected ? (
                   <>
                     <div className="w-2 h-2 rounded-full bg-success animate-pulse"></div>
@@ -713,10 +726,14 @@ const StatusPage = () => {
               <div className="bg-base-100 rounded-lg p-3 border border-base-300">
                 <div className="flex items-center gap-2 mb-1">
                   <Terminal className="w-3.5 h-3.5 text-primary" />
-                  <span className="text-xs font-medium text-base-content/70">Serial Port</span>
+                  <span className="text-xs font-medium text-base-content/70">
+                    Serial Port
+                  </span>
                 </div>
                 <p className="text-sm font-mono font-semibold truncate">
-                  {boxStatus.port || <span className="text-base-content/40">Not connected</span>}
+                  {boxStatus.port || (
+                    <span className="text-base-content/40">Not connected</span>
+                  )}
                 </p>
               </div>
 
@@ -724,13 +741,17 @@ const StatusPage = () => {
               <div className="bg-base-100 rounded-lg p-3 border border-base-300">
                 <div className="flex items-center gap-2 mb-1">
                   <Activity className="w-3.5 h-3.5 text-primary" />
-                  <span className="text-xs font-medium text-base-content/70">Mode</span>
+                  <span className="text-xs font-medium text-base-content/70">
+                    Mode
+                  </span>
                 </div>
-                <div className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-semibold ${
-                  getStatusBadgeClass(boxStatus.currentMode)
-                }`}>
+                <div
+                  className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-semibold ${getStatusBadgeClass(
+                    boxStatus.currentMode
+                  )}`}
+                >
                   <span>{getModeIcon(boxStatus.currentMode)}</span>
-                  <span>{boxStatus.currentMode || 'Unknown'}</span>
+                  <span>{boxStatus.currentMode || "Unknown"}</span>
                 </div>
               </div>
 
@@ -742,10 +763,16 @@ const StatusPage = () => {
                   ) : (
                     <Lock className="w-3.5 h-3.5 text-base-content/40" />
                   )}
-                  <span className="text-xs font-medium text-base-content/70">Session</span>
+                  <span className="text-xs font-medium text-base-content/70">
+                    Session
+                  </span>
                 </div>
-                <p className={`text-sm font-semibold ${boxStatus.loggedIn ? 'text-success' : 'text-base-content/40'}`}>
-                  {boxStatus.loggedIn ? '✓ Logged In' : 'Logged Out'}
+                <p
+                  className={`text-sm font-semibold ${
+                    boxStatus.loggedIn ? "text-success" : "text-base-content/40"
+                  }`}
+                >
+                  {boxStatus.loggedIn ? "✓ Logged In" : "Logged Out"}
                 </p>
               </div>
 
@@ -753,11 +780,15 @@ const StatusPage = () => {
               <div className="bg-base-100 rounded-lg p-3 border border-base-300">
                 <div className="flex items-center gap-2 mb-1">
                   <span className="text-sm">✏️</span>
-                  <span className="text-xs font-medium text-base-content/70">Active Pen</span>
+                  <span className="text-xs font-medium text-base-content/70">
+                    Active Pen
+                  </span>
                 </div>
                 <p className="text-sm font-semibold capitalize">
-                  {boxStatus.currentPen && boxStatus.currentPen !== 'none' ? (
-                    <span className="text-primary">{boxStatus.currentPen.replace('_', ' ')}</span>
+                  {boxStatus.currentPen && boxStatus.currentPen !== "none" ? (
+                    <span className="text-primary">
+                      {boxStatus.currentPen.replace("_", " ")}
+                    </span>
                   ) : (
                     <span className="text-base-content/40">None</span>
                   )}
@@ -771,7 +802,9 @@ const StatusPage = () => {
                 <div className="flex items-start gap-2">
                   <AlertCircle className="w-3.5 h-3.5 text-info mt-0.5 flex-shrink-0" />
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs text-base-content/60 mb-0.5">Last Message</p>
+                    <p className="text-xs text-base-content/60 mb-0.5">
+                      Last Message
+                    </p>
                     <p className="text-xs font-mono text-base-content/90 truncate">
                       {boxStatus.lastMessage}
                     </p>
@@ -779,33 +812,6 @@ const StatusPage = () => {
                 </div>
               </div>
             )}
-          </div>
-
-          {/* System Lock Status Card */}
-          <div className="bg-base-200 rounded-2xl p-6 shadow-xl border border-base-300">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold flex items-center gap-2">
-                <span className="text-base-content">System Lock</span>
-              </h3>
-              {systemLocked ? (
-                <Lock className="w-5 h-5 text-error" />
-              ) : (
-                <Unlock className="w-5 h-5 text-success" />
-              )}
-            </div>
-
-            <div className="space-y-3">
-              <div className="flex justify-between items-center">
-                <span className="text-base-content/70 text-sm">Status</span>
-                <span
-                  className={`badge ${
-                    systemLocked ? "badge-error" : "badge-success"
-                  } gap-2`}
-                >
-                  {systemLocked ? "🔒 Locked" : "🔓 Unlocked"}
-                </span>
-              </div>
-            </div>
           </div>
         </div>
 

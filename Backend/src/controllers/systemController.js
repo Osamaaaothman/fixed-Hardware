@@ -14,15 +14,16 @@ export default function systemController(app) {
   });
 
   // Unlock the system with secret code
-  app.post("/api/system/unlock", (req, res) => {
+  app.post("/api/system/unlock", async (req, res) => {
     try {
       const { code } = req.body;
-      const result = unlockSystem(code);
+      const ip = req.ip || req.connection.remoteAddress || "unknown";
+      const result = await unlockSystem(code, ip);
       
       if (result.success) {
-        console.log("System unlocked successfully");
+        console.log(`System unlocked successfully by ${ip}`);
       } else {
-        console.log("Failed unlock attempt with invalid code");
+        console.log(`Failed unlock attempt from ${ip}: ${result.error}`);
       }
       
       res.json(result);
