@@ -281,15 +281,25 @@ export async function startQueueProcessing(
 
     if (boxPort && boxPort.isOpen) {
       try {
+        // Send queue_empty to show animation
         await sendBoxCommand(boxPort, "queue_empty");
         console.log("[QUEUE] Sent queue_empty command to Box");
 
         // Wait 2 seconds for the animation to display
         await new Promise((resolve) => setTimeout(resolve, 2000));
 
+        // Exit writing mode and return to menu
+        await sendBoxCommand(boxPort, "exit_writing");
+        console.log("[QUEUE] Box exited writing mode, returned to menu");
+
         // Emit socket event
         if (io) {
           io.emit("box:queue-empty", {
+            timestamp: Date.now(),
+          });
+          io.emit("box:mode-changed", {
+            mode: "MENU",
+            reason: "queue-empty",
             timestamp: Date.now(),
           });
         }
