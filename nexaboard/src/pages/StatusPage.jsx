@@ -1221,14 +1221,6 @@ const StatusPage = () => {
                     >
                       🧽 Erase Pen
                     </button>
-                    {/* Writing button hidden - use Draw Now or Queue instead */}
-                    {/* <button
-                      onClick={() => handleSendBoxCommand("writing")}
-                      disabled={!boxStatus.connected}
-                      className="btn btn-sm btn-outline btn-info gap-1"
-                    >
-                      ✍️ Writing
-                    </button> */}
                     <button
                       onClick={() => handleSendBoxCommand("erasing")}
                       disabled={!boxStatus.connected}
