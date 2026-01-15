@@ -248,6 +248,20 @@ const parseBoxMessage = (message, io) => {
 
   // Update box status based on message
   switch (msg) {
+    case "IDLE":
+      // Box is connected but not logged in (waiting for RFID/PIN)
+      // This is NOT a logout - it's the initial state after sync
+      updateBoxStatus(
+        {
+          loggedIn: false,
+          currentMode: "IDLE",
+          lastMessage: msg,
+          error: null,
+        },
+        io
+      );
+      break;
+
     case "LOGIN_OK":
       updateBoxStatus(
         {
@@ -267,6 +281,19 @@ const parseBoxMessage = (message, io) => {
           currentMode: "LOGIN_FAILED",
           lastMessage: msg,
           error: "Login failed - incorrect password",
+        },
+        io
+      );
+      break;
+
+    case "LOGOUT":
+      // Actual logout command from server or timeout
+      updateBoxStatus(
+        {
+          loggedIn: false,
+          currentMode: "LOGGED_OUT",
+          lastMessage: msg,
+          error: null,
         },
         io
       );
@@ -378,6 +405,78 @@ const parseBoxMessage = (message, io) => {
         },
         io
       );
+
+      // Check if this was triggered by software (not hardware button)
+      const writingNow = Date.now();
+      const writingIsSoftwareTriggered =
+        lastSoftwareCommand === "writing" &&
+        writingNow - lastSoftwareCommandTime < COMMAND_TIMEOUT;
+
+      if (writingIsSoftwareTriggered && io) {
+        console.log("[BOX] Software writing mode - auto-processing queue");
+
+        // Auto-process queue when software triggers writing mode
+        (async () => {
+          try {
+            const { getQueue } = await import("../utils/Queue.js");
+            const queue = getQueue();
+            const pendingItems = queue.getPendingItems();
+
+            if (pendingItems.length === 0) {
+              console.log("[BOX] Queue is empty - returning to menu");
+              if (boxPort && boxPort.isOpen) {
+                boxPort.write("exit_writing\n");
+              }
+              io.emit("box:queue-empty", {
+                message: "Queue is empty",
+                timestamp: new Date().toISOString(),
+              });
+              return;
+            }
+
+            // Process queue
+            const { startQueueProcessing } = await import(
+              "../services/queueProcessor.js"
+            );
+            const { getPersistentPort, getPersistentParser } = await import(
+              "./serialController.js"
+            );
+
+            const persistentPort = getPersistentPort();
+            const persistentParser = getPersistentParser();
+
+            if (!persistentPort || !persistentPort.isOpen) {
+              console.log("[BOX] CNC not connected");
+              io.emit("box:cnc-not-connected", {
+                error: "CNC is not connected",
+                timestamp: new Date().toISOString(),
+              });
+              if (boxPort && boxPort.isOpen) {
+                boxPort.write("exit_writing\n");
+              }
+              return;
+            }
+
+            await startQueueProcessing(
+              io,
+              persistentPort.path || "COM4",
+              115200,
+              persistentPort,
+              persistentParser,
+              boxPort
+            );
+          } catch (error) {
+            console.error("[BOX] Error in software writing mode:", error);
+            io.emit("box:writing-error", {
+              error: error.message,
+              timestamp: new Date().toISOString(),
+            });
+            if (boxPort && boxPort.isOpen) {
+              boxPort.write("exit_writing\n");
+            }
+          }
+        })();
+      }
       break;
 
     case "MODE_ERASING":

@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { Wifi, WifiOff, Activity, AlertCircle } from "lucide-react";
 import { API_CONFIG } from "../config/api.config.js";
+import { io } from "socket.io-client";
+import { SOCKET_CONFIG } from "../config/api.config.js";
 
 /**
  * Connection Status Indicator Component
@@ -10,37 +12,117 @@ const ConnectionStatusIndicator = () => {
   const [cncConnected, setCncConnected] = useState(false);
   const [boxConnected, setBoxConnected] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [cncPort, setCncPort] = useState(null);
+  const [boxPort, setBoxPort] = useState(null);
 
   // Check connection status on mount and periodically
   useEffect(() => {
+    let socket = null;
+
     const checkStatus = async () => {
       try {
-        // Check CNC/Serial connection
-        const serialResponse = await fetch(
-          `${API_CONFIG.ENDPOINTS.SERIAL}/status`
-        );
-        const serialData = await serialResponse.json();
-        setCncConnected(serialData.connected || false);
+        // Check CNC/Serial connection with timeout
+        const serialController = new AbortController();
+        const serialTimeout = setTimeout(() => serialController.abort(), 3000);
 
-        // Check Box connection
-        const boxResponse = await fetch(`${API_CONFIG.ENDPOINTS.BOX}/status`);
-        const boxData = await boxResponse.json();
-        setBoxConnected(boxData.connected || false);
+        const serialResponse = await fetch(
+          `${API_CONFIG.ENDPOINTS.SERIAL}/status`,
+          { signal: serialController.signal }
+        );
+        clearTimeout(serialTimeout);
+
+        if (serialResponse.ok) {
+          const serialData = await serialResponse.json();
+          const isConnected = serialData.connected === true && serialData.port;
+          setCncConnected(isConnected);
+          setCncPort(serialData.port);
+        } else {
+          setCncConnected(false);
+          setCncPort(null);
+        }
+
+        // Check Box connection with timeout
+        const boxController = new AbortController();
+        const boxTimeout = setTimeout(() => boxController.abort(), 3000);
+
+        const boxResponse = await fetch(`${API_CONFIG.ENDPOINTS.BOX}/status`, {
+          signal: boxController.signal,
+        });
+        clearTimeout(boxTimeout);
+
+        if (boxResponse.ok) {
+          const boxData = await boxResponse.json();
+          const isConnected =
+            boxData.status?.connected === true && boxData.status?.port;
+          setBoxConnected(isConnected);
+          setBoxPort(boxData.status?.port);
+        } else {
+          setBoxConnected(false);
+          setBoxPort(null);
+        }
       } catch (error) {
-        console.error("[ConnectionStatus] Error checking status:", error);
+        // Timeout or network error
+        if (error.name !== "AbortError") {
+          console.error("[ConnectionStatus] Error checking status:", error);
+        }
         setCncConnected(false);
         setBoxConnected(false);
+        setCncPort(null);
+        setBoxPort(null);
       } finally {
         setIsLoading(false);
       }
     };
 
+    // Initial check
     checkStatus();
 
-    // Poll every 5 seconds
-    const interval = setInterval(checkStatus, 5000);
+    // Poll every 3 seconds
+    const interval = setInterval(checkStatus, 3000);
 
-    return () => clearInterval(interval);
+    // Setup Socket.IO for real-time updates
+    try {
+      socket = io(SOCKET_CONFIG.SERVER_URL, {
+        transports: ["websocket", "polling"],
+        reconnection: true,
+      });
+
+      // Listen for CNC connection events
+      socket.on("serial:connected", (data) => {
+        setCncConnected(true);
+        setCncPort(data.port);
+      });
+
+      socket.on("serial:disconnected", () => {
+        setCncConnected(false);
+        setCncPort(null);
+      });
+
+      // Listen for Box connection events
+      socket.on("box:connected", (data) => {
+        setBoxConnected(true);
+        setBoxPort(data.port);
+      });
+
+      socket.on("box:disconnected", () => {
+        setBoxConnected(false);
+        setBoxPort(null);
+      });
+
+      socket.on("box:status", (status) => {
+        setBoxConnected(status.connected === true && status.port);
+        setBoxPort(status.port);
+      });
+    } catch (socketError) {
+      console.error("[ConnectionStatus] Socket.IO error:", socketError);
+    }
+
+    return () => {
+      clearInterval(interval);
+      if (socket) {
+        socket.disconnect();
+      }
+    };
   }, []);
 
   if (isLoading) {
@@ -96,10 +178,12 @@ const ConnectionStatusIndicator = () => {
         {/* Tooltip on hover */}
         <div className="hidden group-hover:block absolute top-full right-0 mt-2 p-2 bg-base-300 text-base-content rounded shadow-lg text-xs whitespace-nowrap">
           {allConnected
-            ? "All systems connected and ready"
+            ? `All systems ready - CNC: ${cncPort}, Box: ${boxPort}`
             : someConnected
-            ? "Partial connection - some features may not work"
-            : "No connections - please connect CNC and Box"}
+            ? `Partial connection - CNC: ${
+                cncConnected ? cncPort : "Not connected"
+              }, Box: ${boxConnected ? boxPort : "Not connected"}`
+            : "No connections - please connect CNC and Box from Status page"}
         </div>
       </div>
     </div>
