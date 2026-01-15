@@ -23,6 +23,7 @@ let boxStatus = {
   port: null,
   loggedIn: false,
   currentMode: "IDLE",
+  currentPen: "none",
   lastMessage: null,
   lastActivity: null,
   reconnectAttempts: 0,
@@ -255,6 +256,7 @@ const parseBoxMessage = (message, io) => {
         {
           loggedIn: false,
           currentMode: "IDLE",
+          currentPen: "none",
           lastMessage: msg,
           error: null,
         },
@@ -679,6 +681,7 @@ const parseBoxMessage = (message, io) => {
         {
           loggedIn: false,
           currentMode: "LOGGED_OUT",
+          currentPen: "none",
           lastMessage: msg,
         },
         io
@@ -735,6 +738,7 @@ const parseBoxMessage = (message, io) => {
       updateBoxStatus(
         {
           currentMode: "PEN1",
+          currentPen: "pen1",
           lastMessage: msg,
         },
         io
@@ -754,6 +758,7 @@ const parseBoxMessage = (message, io) => {
       updateBoxStatus(
         {
           currentMode: "PEN2",
+          currentPen: "pen2",
           lastMessage: msg,
         },
         io
@@ -773,6 +778,7 @@ const parseBoxMessage = (message, io) => {
       updateBoxStatus(
         {
           currentMode: "ERASING_PEN",
+          currentPen: "erasing_pen",
           lastMessage: msg,
         },
         io

@@ -14,6 +14,7 @@ const ConnectionStatusIndicator = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [cncPort, setCncPort] = useState(null);
   const [boxPort, setBoxPort] = useState(null);
+  const [currentPen, setCurrentPen] = useState("none");
 
   // Check connection status on mount and periodically
   useEffect(() => {
@@ -56,9 +57,11 @@ const ConnectionStatusIndicator = () => {
             boxData.status?.connected === true && boxData.status?.port;
           setBoxConnected(isConnected);
           setBoxPort(boxData.status?.port);
+          setCurrentPen(boxData.status?.currentPen || "none");
         } else {
           setBoxConnected(false);
           setBoxPort(null);
+          setCurrentPen("none");
         }
       } catch (error) {
         // Timeout or network error
@@ -69,6 +72,7 @@ const ConnectionStatusIndicator = () => {
         setBoxConnected(false);
         setCncPort(null);
         setBoxPort(null);
+        setCurrentPen("none");
       } finally {
         setIsLoading(false);
       }
@@ -112,6 +116,7 @@ const ConnectionStatusIndicator = () => {
       socket.on("box:status", (status) => {
         setBoxConnected(status.connected === true && status.port);
         setBoxPort(status.port);
+        setCurrentPen(status.currentPen || "none");
       });
     } catch (socketError) {
       console.error("[ConnectionStatus] Socket.IO error:", socketError);
@@ -173,16 +178,34 @@ const ConnectionStatusIndicator = () => {
             )}
             <span className={!boxConnected ? "opacity-50" : ""}>Box</span>
           </div>
+
+          {/* Current Pen Indicator */}
+          {boxConnected && (
+            <>
+              <div className="w-px h-4 bg-current opacity-30"></div>
+              <div className="flex items-center gap-1.5">
+                <span className="capitalize">
+                  {currentPen === "none"
+                    ? "No Pen"
+                    : currentPen.replace("_", " ")}
+                </span>
+              </div>
+            </>
+          )}
         </div>
 
         {/* Tooltip on hover */}
         <div className="hidden group-hover:block absolute top-full right-0 mt-2 p-2 bg-base-300 text-base-content rounded shadow-lg text-xs whitespace-nowrap">
           {allConnected
-            ? `All systems ready - CNC: ${cncPort}, Box: ${boxPort}`
+            ? `All systems ready - CNC: ${cncPort}, Box: ${boxPort}, Pen: ${
+                currentPen === "none" ? "None" : currentPen.replace("_", " ")
+              }`
             : someConnected
             ? `Partial connection - CNC: ${
                 cncConnected ? cncPort : "Not connected"
-              }, Box: ${boxConnected ? boxPort : "Not connected"}`
+              }, Box: ${boxConnected ? boxPort : "Not connected"}, Pen: ${
+                currentPen === "none" ? "None" : currentPen.replace("_", " ")
+              }`
             : "No connections - please connect CNC and Box from Status page"}
         </div>
       </div>

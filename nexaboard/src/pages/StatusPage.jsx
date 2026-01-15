@@ -678,60 +678,107 @@ const StatusPage = () => {
           </div>
 
           {/* Box Status Card */}
-          <div className="bg-base-100 rounded-lg p-4 border border-base-300">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-semibold flex items-center gap-2">
-                <BoxIcon className="w-4 h-4" />
-                Box
-              </h3>
-              {boxStatus.connected ? (
-                <Wifi className="w-4 h-4 text-success" />
-              ) : (
-                <WifiOff className="w-4 h-4 text-error" />
-              )}
-            </div>
-
-            <div className="space-y-1.5 text-xs">
-              <div className="flex justify-between">
-                <span className="text-base-content/70">Port</span>
-                <span className="font-mono truncate ml-2">
-                  {boxStatus.port || "Not connected"}
-                </span>
+          <div className="bg-gradient-to-br from-base-100 to-base-200 rounded-xl p-5 border-2 border-base-300 shadow-lg hover:shadow-xl transition-all">
+            {/* Header */}
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <div className={`p-2 rounded-lg ${boxStatus.connected ? 'bg-success/20' : 'bg-error/20'}`}>
+                  <BoxIcon className={`w-5 h-5 ${boxStatus.connected ? 'text-success' : 'text-error'}`} />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold">Box Controller</h3>
+                  <p className="text-xs text-base-content/60">Hardware Interface</p>
+                </div>
               </div>
-
-              <div className="flex justify-between text-sm">
-                <span className="text-base-content/70">Connection</span>
-                <span
-                  className={`badge badge-sm ${
-                    boxStatus.connected ? "badge-success" : "badge-ghost"
-                  }`}
-                >
-                  {boxStatus.connected ? "Connected" : "Disconnected"}
-                </span>
-              </div>
-
-              <div className="flex justify-between text-sm">
-                <span className="text-base-content/70">User Status</span>
-                <span
-                  className={`badge badge-sm ${
-                    boxStatus.loggedIn ? "badge-success" : "badge-ghost"
-                  }`}
-                >
-                  {boxStatus.loggedIn ? "Logged In" : "Logged Out"}
-                </span>
-              </div>
-
-              <div className="flex justify-between text-sm">
-                <span className="text-base-content/70">Current Mode</span>
-                <span
-                  className={`badge badge-sm ${getStatusBadgeClass(
-                    boxStatus.currentMode
-                  )}`}
-                >
-                  {getModeIcon(boxStatus.currentMode)} {boxStatus.currentMode}
-                </span>
+              <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full ${
+                boxStatus.connected ? 'bg-success/20 text-success' : 'bg-error/20 text-error'
+              }`}>
+                {boxStatus.connected ? (
+                  <>
+                    <div className="w-2 h-2 rounded-full bg-success animate-pulse"></div>
+                    <span className="text-xs font-semibold">Active</span>
+                  </>
+                ) : (
+                  <>
+                    <div className="w-2 h-2 rounded-full bg-error"></div>
+                    <span className="text-xs font-semibold">Offline</span>
+                  </>
+                )}
               </div>
             </div>
+
+            {/* Status Grid */}
+            <div className="grid grid-cols-2 gap-3">
+              {/* Serial Port */}
+              <div className="bg-base-100 rounded-lg p-3 border border-base-300">
+                <div className="flex items-center gap-2 mb-1">
+                  <Terminal className="w-3.5 h-3.5 text-primary" />
+                  <span className="text-xs font-medium text-base-content/70">Serial Port</span>
+                </div>
+                <p className="text-sm font-mono font-semibold truncate">
+                  {boxStatus.port || <span className="text-base-content/40">Not connected</span>}
+                </p>
+              </div>
+
+              {/* Current Mode */}
+              <div className="bg-base-100 rounded-lg p-3 border border-base-300">
+                <div className="flex items-center gap-2 mb-1">
+                  <Activity className="w-3.5 h-3.5 text-primary" />
+                  <span className="text-xs font-medium text-base-content/70">Mode</span>
+                </div>
+                <div className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-semibold ${
+                  getStatusBadgeClass(boxStatus.currentMode)
+                }`}>
+                  <span>{getModeIcon(boxStatus.currentMode)}</span>
+                  <span>{boxStatus.currentMode || 'Unknown'}</span>
+                </div>
+              </div>
+
+              {/* User Session */}
+              <div className="bg-base-100 rounded-lg p-3 border border-base-300">
+                <div className="flex items-center gap-2 mb-1">
+                  {boxStatus.loggedIn ? (
+                    <Unlock className="w-3.5 h-3.5 text-success" />
+                  ) : (
+                    <Lock className="w-3.5 h-3.5 text-base-content/40" />
+                  )}
+                  <span className="text-xs font-medium text-base-content/70">Session</span>
+                </div>
+                <p className={`text-sm font-semibold ${boxStatus.loggedIn ? 'text-success' : 'text-base-content/40'}`}>
+                  {boxStatus.loggedIn ? '✓ Logged In' : 'Logged Out'}
+                </p>
+              </div>
+
+              {/* Current Pen */}
+              <div className="bg-base-100 rounded-lg p-3 border border-base-300">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-sm">✏️</span>
+                  <span className="text-xs font-medium text-base-content/70">Active Pen</span>
+                </div>
+                <p className="text-sm font-semibold capitalize">
+                  {boxStatus.currentPen && boxStatus.currentPen !== 'none' ? (
+                    <span className="text-primary">{boxStatus.currentPen.replace('_', ' ')}</span>
+                  ) : (
+                    <span className="text-base-content/40">None</span>
+                  )}
+                </p>
+              </div>
+            </div>
+
+            {/* Last Activity */}
+            {boxStatus.lastMessage && (
+              <div className="mt-3 pt-3 border-t border-base-300">
+                <div className="flex items-start gap-2">
+                  <AlertCircle className="w-3.5 h-3.5 text-info mt-0.5 flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs text-base-content/60 mb-0.5">Last Message</p>
+                    <p className="text-xs font-mono text-base-content/90 truncate">
+                      {boxStatus.lastMessage}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* System Lock Status Card */}
@@ -1174,13 +1221,14 @@ const StatusPage = () => {
                     >
                       🧽 Erase Pen
                     </button>
-                    <button
+                    {/* Writing button hidden - use Draw Now or Queue instead */}
+                    {/* <button
                       onClick={() => handleSendBoxCommand("writing")}
                       disabled={!boxStatus.connected}
                       className="btn btn-sm btn-outline btn-info gap-1"
                     >
                       ✍️ Writing
-                    </button>
+                    </button> */}
                     <button
                       onClick={() => handleSendBoxCommand("erasing")}
                       disabled={!boxStatus.connected}
@@ -1188,13 +1236,14 @@ const StatusPage = () => {
                     >
                       🧹 Erasing
                     </button>
-                    <button
+                    {/* Screenshot button hidden */}
+                    {/* <button
                       onClick={handleScreenshot}
                       disabled={!boxStatus.connected}
                       className="btn btn-sm btn-outline btn-accent gap-1"
                     >
                       📷 Screenshot
-                    </button>
+                    </button> */
                   </div>
                 </div>
 
@@ -1231,7 +1280,8 @@ const StatusPage = () => {
                     >
                       ↩️ Exit Erase Pen
                     </button>
-                    <button
+                    {/* Exit Writing button hidden */}
+                    {/* <button
                       onClick={() => handleSendBoxCommand("exit_writing")}
                       disabled={
                         !boxStatus.connected ||
@@ -1240,7 +1290,7 @@ const StatusPage = () => {
                       className="btn btn-xs btn-ghost gap-1"
                     >
                       ↩️ Exit Writing
-                    </button>
+                    </button> */}
                     <button
                       onClick={() => handleSendBoxCommand("exit_erasing")}
                       disabled={
@@ -1251,7 +1301,8 @@ const StatusPage = () => {
                     >
                       ↩️ Exit Erasing
                     </button>
-                    <button
+                    {/* Exit Screenshot button hidden */}
+                    {/* <button
                       onClick={() => handleSendBoxCommand("exit_screenshot")}
                       disabled={
                         !boxStatus.connected ||
@@ -1260,7 +1311,7 @@ const StatusPage = () => {
                       className="btn btn-xs btn-ghost gap-1"
                     >
                       ↩️ Exit Screenshot
-                    </button>
+                    </button> */
                   </div>
                 </div>
 
