@@ -1,6 +1,6 @@
 /**
  * Enhanced Lock Middleware with Security Features
- * 
+ *
  * Features:
  * - Bcrypt password hashing
  * - Rate limiting on unlock attempts
@@ -26,7 +26,7 @@ let secretHash = null;
 // Initialize secret hash
 const initializeSecret = async () => {
   const { SECRET_CODE, REQUIRE_HASH } = HardwareConfig.SECURITY.LOCK;
-  
+
   if (REQUIRE_HASH) {
     secretHash = await bcrypt.hash(SECRET_CODE, 10);
     console.log("[LockMiddleware] Secret code hashed and ready");
@@ -79,7 +79,7 @@ const isLockedOut = (ip) => {
  */
 const recordFailedAttempt = (ip) => {
   const { MAX_ATTEMPTS, LOCKOUT_DURATION } = HardwareConfig.SECURITY.LOCK;
-  
+
   let attempt = failedAttempts.get(ip) || { count: 0, lockoutUntil: null };
   attempt.count++;
 
@@ -152,7 +152,7 @@ export const unlockSystem = async (code, ip = "unknown") => {
   if (isLockedOut(ip)) {
     const attempt = failedAttempts.get(ip);
     const remainingTime = Math.ceil((attempt.lockoutUntil - Date.now()) / 1000);
-    
+
     return {
       success: false,
       locked: true,
@@ -188,14 +188,17 @@ export const unlockSystem = async (code, ip = "unknown") => {
   const { MAX_ATTEMPTS } = HardwareConfig.SECURITY.LOCK;
   const remaining = MAX_ATTEMPTS - attempt.count;
 
-  console.warn(`[LockMiddleware] Failed unlock attempt from ${ip} (${attempt.count}/${MAX_ATTEMPTS})`);
+  console.warn(
+    `[LockMiddleware] Failed unlock attempt from ${ip} (${attempt.count}/${MAX_ATTEMPTS})`
+  );
 
   return {
     success: false,
     locked: true,
-    error: remaining > 0
-      ? `Invalid code. ${remaining} attempts remaining.`
-      : "Maximum attempts exceeded.",
+    error:
+      remaining > 0
+        ? `Invalid code. ${remaining} attempts remaining.`
+        : "Maximum attempts exceeded.",
     attemptsRemaining: Math.max(0, remaining),
   };
 };
@@ -217,13 +220,13 @@ export const getSystemStatus = () => {
  */
 export const resetSecret = async (newCode) => {
   const { REQUIRE_HASH } = HardwareConfig.SECURITY.LOCK;
-  
+
   if (REQUIRE_HASH) {
     secretHash = await bcrypt.hash(newCode, 10);
   } else {
     secretHash = newCode;
   }
-  
+
   console.log("[LockMiddleware] Secret code reset");
   return { success: true };
 };

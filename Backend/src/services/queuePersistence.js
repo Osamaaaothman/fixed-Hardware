@@ -1,6 +1,6 @@
 /**
  * Enhanced Queue Persistence with Atomic Writes and Backups
- * 
+ *
  * Features:
  * - Atomic file writes (temp file + rename)
  * - Automatic backups
@@ -46,22 +46,27 @@ export async function loadQueue() {
     try {
       const data = await fs.readFile(QUEUE_FILE_PATH, "utf-8");
       const parsed = JSON.parse(data);
-      
+
       // Validate structure
       if (!parsed.items || !Array.isArray(parsed.items)) {
         throw new Error("Invalid queue file structure");
       }
-      
+
       console.log(`[QueuePersistence] Loaded ${parsed.items.length} items`);
       return parsed.items;
     } catch (error) {
       if (error.code === "ENOENT") {
         // File doesn't exist yet, return empty array
-        console.log("[QueuePersistence] Queue file not found, initializing empty queue");
+        console.log(
+          "[QueuePersistence] Queue file not found, initializing empty queue"
+        );
         return [];
       }
 
-      console.error(`[QueuePersistence] Error loading queue (attempt ${attempt}/${RETRY_ATTEMPTS}):`, error.message);
+      console.error(
+        `[QueuePersistence] Error loading queue (attempt ${attempt}/${RETRY_ATTEMPTS}):`,
+        error.message
+      );
 
       // Try to recover from backup
       if (attempt === RETRY_ATTEMPTS) {
@@ -70,8 +75,10 @@ export async function loadQueue() {
         if (recovered) {
           return recovered;
         }
-        
-        console.error("[QueuePersistence] Failed to load queue, returning empty array");
+
+        console.error(
+          "[QueuePersistence] Failed to load queue, returning empty array"
+        );
         return [];
       }
 
@@ -89,7 +96,8 @@ export async function loadQueue() {
  * @returns {Promise<void>}
  */
 export async function saveQueue(items) {
-  const { RETRY_ATTEMPTS = 2, RETRY_DELAY = 1000 } = HardwareConfig.QUEUE.PROCESSING;
+  const { RETRY_ATTEMPTS = 2, RETRY_DELAY = 1000 } =
+    HardwareConfig.QUEUE.PROCESSING;
   const { BACKUP_ENABLED, MAX_BACKUPS } = HardwareConfig.QUEUE.PERSISTENCE;
 
   for (let attempt = 1; attempt <= RETRY_ATTEMPTS; attempt++) {
@@ -116,7 +124,9 @@ export async function saveQueue(items) {
       await fs.writeFile(tempPath, JSON.stringify(data, null, 2), "utf-8");
       await fs.rename(tempPath, QUEUE_FILE_PATH);
 
-      console.log(`[QueuePersistence] ✅ Saved ${items.length} items atomically`);
+      console.log(
+        `[QueuePersistence] ✅ Saved ${items.length} items atomically`
+      );
 
       // Cleanup old backups
       if (BACKUP_ENABLED) {
@@ -147,9 +157,11 @@ async function createBackup() {
   try {
     const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
     const backupPath = path.join(BACKUP_DIR, `queue-${timestamp}.json`);
-    
+
     await fs.copyFile(QUEUE_FILE_PATH, backupPath);
-    console.log(`[QueuePersistence] Backup created: ${path.basename(backupPath)}`);
+    console.log(
+      `[QueuePersistence] Backup created: ${path.basename(backupPath)}`
+    );
   } catch (error) {
     console.error("[QueuePersistence] Error creating backup:", error.message);
     // Don't throw - backup failure shouldn't stop save operation
@@ -179,24 +191,31 @@ async function recoverFromBackup() {
         const backupPath = path.join(BACKUP_DIR, backupFile);
         const data = await fs.readFile(backupPath, "utf-8");
         const parsed = JSON.parse(data);
-        
+
         if (parsed.items && Array.isArray(parsed.items)) {
-          console.log(`[QueuePersistence] ✅ Recovered ${parsed.items.length} items from ${backupFile}`);
-          
+          console.log(
+            `[QueuePersistence] ✅ Recovered ${parsed.items.length} items from ${backupFile}`
+          );
+
           // Restore to main file
           await fs.copyFile(backupPath, QUEUE_FILE_PATH);
-          
+
           return parsed.items;
         }
       } catch (error) {
-        console.error(`[QueuePersistence] Backup ${backupFile} is corrupted, trying next...`);
+        console.error(
+          `[QueuePersistence] Backup ${backupFile} is corrupted, trying next...`
+        );
       }
     }
 
     console.log("[QueuePersistence] All backups are corrupted");
     return null;
   } catch (error) {
-    console.error("[QueuePersistence] Error recovering from backup:", error.message);
+    console.error(
+      "[QueuePersistence] Error recovering from backup:",
+      error.message
+    );
     return null;
   }
 }
@@ -225,7 +244,10 @@ async function cleanupOldBackups(maxBackups) {
       console.log(`[QueuePersistence] Deleted old backup: ${file}`);
     }
   } catch (error) {
-    console.error("[QueuePersistence] Error cleaning up backups:", error.message);
+    console.error(
+      "[QueuePersistence] Error cleaning up backups:",
+      error.message
+    );
     // Don't throw - cleanup failure is not critical
   }
 }
@@ -254,7 +276,10 @@ export async function getBackupHistory() {
 
     return backups.sort((a, b) => b.created - a.created);
   } catch (error) {
-    console.error("[QueuePersistence] Error getting backup history:", error.message);
+    console.error(
+      "[QueuePersistence] Error getting backup history:",
+      error.message
+    );
     return [];
   }
 }

@@ -1,6 +1,6 @@
 /**
  * Event Listener Tracker
- * 
+ *
  * Tracks and manages event listeners to prevent memory leaks.
  * Automatically cleans up listeners and warns about potential leaks.
  */
@@ -12,10 +12,10 @@ class ListenerTracker {
     // Track all registered listeners
     // Structure: { emitterKey: { event: Set of { handler, metadata } } }
     this.listeners = new Map();
-    
+
     // Track cleanup timers
     this.cleanupTimers = new Map();
-    
+
     console.log("[ListenerTracker] Initialized");
   }
 
@@ -62,7 +62,7 @@ class ListenerTracker {
     const wrappedHandler = (...args) => {
       try {
         handler(...args);
-        
+
         // Auto-cleanup if once
         if (once) {
           this.remove(emitter, event, id, metadata.emitterId);
@@ -122,7 +122,7 @@ class ListenerTracker {
    */
   remove(emitter, event, listenerId, emitterId = "default") {
     const emitterKey = this.getEmitterKey(emitter, emitterId);
-    
+
     if (!this.listeners.has(emitterKey)) {
       return false;
     }
@@ -139,16 +139,16 @@ class ListenerTracker {
       if (listenerInfo.id === listenerId) {
         // Remove the actual listener
         emitter.removeListener(event, listenerInfo.wrappedHandler);
-        
+
         // Remove from tracking
         eventListeners.delete(listenerInfo);
-        
+
         // Clear cleanup timer
         if (this.cleanupTimers.has(listenerId)) {
           clearTimeout(this.cleanupTimers.get(listenerId));
           this.cleanupTimers.delete(listenerId);
         }
-        
+
         found = true;
         console.log(`[ListenerTracker] Removed listener ${listenerId}`);
         break;
@@ -175,7 +175,7 @@ class ListenerTracker {
    */
   removeAllForEvent(emitter, event, emitterId = "default") {
     const emitterKey = this.getEmitterKey(emitter, emitterId);
-    
+
     if (!this.listeners.has(emitterKey)) {
       return 0;
     }
@@ -190,17 +190,17 @@ class ListenerTracker {
 
     for (const listenerInfo of eventListeners) {
       emitter.removeListener(event, listenerInfo.wrappedHandler);
-      
+
       if (this.cleanupTimers.has(listenerInfo.id)) {
         clearTimeout(this.cleanupTimers.get(listenerInfo.id));
         this.cleanupTimers.delete(listenerInfo.id);
       }
-      
+
       count++;
     }
 
     emitterListeners.delete(event);
-    
+
     if (emitterListeners.size === 0) {
       this.listeners.delete(emitterKey);
     }
@@ -220,7 +220,7 @@ class ListenerTracker {
    */
   removeAllForEmitter(emitter, emitterId = "default") {
     const emitterKey = this.getEmitterKey(emitter, emitterId);
-    
+
     if (!this.listeners.has(emitterKey)) {
       return 0;
     }
@@ -231,19 +231,21 @@ class ListenerTracker {
     for (const [event, eventListeners] of emitterListeners.entries()) {
       for (const listenerInfo of eventListeners) {
         emitter.removeListener(event, listenerInfo.wrappedHandler);
-        
+
         if (this.cleanupTimers.has(listenerInfo.id)) {
           clearTimeout(this.cleanupTimers.get(listenerInfo.id));
           this.cleanupTimers.delete(listenerInfo.id);
         }
-        
+
         count++;
       }
     }
 
     this.listeners.delete(emitterKey);
 
-    console.log(`[ListenerTracker] Removed ${count} listeners for ${emitterKey}`);
+    console.log(
+      `[ListenerTracker] Removed ${count} listeners for ${emitterKey}`
+    );
 
     return count;
   }
@@ -255,7 +257,7 @@ class ListenerTracker {
    */
   checkForLeaks(emitterKey, event) {
     const { MAX_PER_EVENT } = HardwareConfig.SYSTEM.LISTENERS;
-    
+
     const emitterListeners = this.listeners.get(emitterKey);
     if (!emitterListeners) return;
 
@@ -265,8 +267,8 @@ class ListenerTracker {
     if (eventListeners.size > MAX_PER_EVENT) {
       console.warn(
         `[ListenerTracker] ⚠️ Potential memory leak detected! ` +
-        `${eventListeners.size} listeners registered for ${emitterKey}:${event} ` +
-        `(threshold: ${MAX_PER_EVENT})`
+          `${eventListeners.size} listeners registered for ${emitterKey}:${event} ` +
+          `(threshold: ${MAX_PER_EVENT})`
       );
     }
   }
@@ -308,7 +310,10 @@ class ListenerTracker {
    */
   logStats() {
     const stats = this.getStats();
-    console.log("[ListenerTracker] Statistics:", JSON.stringify(stats, null, 2));
+    console.log(
+      "[ListenerTracker] Statistics:",
+      JSON.stringify(stats, null, 2)
+    );
   }
 
   /**
@@ -316,22 +321,24 @@ class ListenerTracker {
    */
   cleanup() {
     console.warn("[ListenerTracker] Emergency cleanup of all listeners!");
-    
+
     let totalRemoved = 0;
-    
+
     // Note: We can't actually remove listeners without the emitter reference
     // This just clears our tracking
-    
+
     for (const timerId of this.cleanupTimers.values()) {
       clearTimeout(timerId);
     }
-    
+
     totalRemoved = this.getStats().totalListeners;
-    
+
     this.listeners.clear();
     this.cleanupTimers.clear();
-    
-    console.log(`[ListenerTracker] Cleared tracking for ${totalRemoved} listeners`);
+
+    console.log(
+      `[ListenerTracker] Cleared tracking for ${totalRemoved} listeners`
+    );
   }
 }
 

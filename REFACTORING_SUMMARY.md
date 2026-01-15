@@ -7,15 +7,18 @@ This document summarizes the major refactoring work completed to address race co
 ## ✅ Completed Improvements
 
 ### 1. Centralized Hardware Configuration
+
 **File:** `Backend/src/config/hardware.config.js`
 
 **Benefits:**
+
 - All magic numbers and hardcoded values now in one place
 - Easy to adjust CNC dimensions, timing, serial ports
 - Platform-aware defaults (Windows vs Linux)
 - Supports future ESP32 remote controller
 
 **Key Configurations:**
+
 - CNC dimensions (95mm x 130mm)
 - Pen positions (up: -2.3mm, down: 0mm)
 - Serial connection settings (baudrates, ports)
@@ -24,17 +27,20 @@ This document summarizes the major refactoring work completed to address race co
 - Auto-connect settings
 
 **Usage:**
+
 ```javascript
-import HardwareConfig from './src/config/hardware.config.js';
+import HardwareConfig from "./src/config/hardware.config.js";
 
 const feedRate = HardwareConfig.CNC.MOVEMENT.FEED_RATE; // 8000
 const penUp = HardwareConfig.CNC.PEN.UP; // -2.3
 ```
 
 ### 2. Enhanced Lock System with Security
+
 **File:** `Backend/src/middleware/lockMiddleware.js`
 
 **Improvements:**
+
 - ✅ Bcrypt password hashing (instead of plaintext)
 - ✅ Rate limiting (5 attempts max)
 - ✅ Auto-lockout after failed attempts (15 minutes)
@@ -42,22 +48,26 @@ const penUp = HardwareConfig.CNC.PEN.UP; // -2.3
 - ✅ Environment variable support (`LOCK_SECRET`)
 
 **Configuration:**
+
 ```javascript
 // In .env file (create if doesn't exist):
-LOCK_SECRET=your_secret_code_here
-ENABLE_SYSTEM_LOCK=true
+LOCK_SECRET = your_secret_code_here;
+ENABLE_SYSTEM_LOCK = true;
 ```
 
 **Security Features:**
+
 - Failed attempts tracked per IP address
 - Automatic lockout after 5 failed attempts
 - Lockout duration: 15 minutes
 - Attempts reset on successful unlock
 
 ### 3. Atomic Queue Persistence with Backups
+
 **File:** `Backend/src/services/queuePersistence.js`
 
 **Improvements:**
+
 - ✅ Atomic file writes (temp file + rename pattern)
 - ✅ Automatic backups before overwrites
 - ✅ Keeps last 5 backups
@@ -67,14 +77,17 @@ ENABLE_SYSTEM_LOCK=true
 **Backup Location:** `Backend/data/backups/`
 
 **Recovery:**
+
 - Automatically tries backups in reverse chronological order
 - Validates JSON structure before using backup
 - Restores most recent valid backup to main file
 
 ### 4. Hardware Connection Manager
+
 **File:** `Backend/src/services/connectionManager.js`
 
 **Features:**
+
 - ✅ **Auto-connect on startup** (configurable delay: 3 seconds)
 - ✅ **Auto-reconnect on disconnection** (exponential backoff)
 - ✅ Supports CNC, Box, and future ESP32 Remote
@@ -83,6 +96,7 @@ ENABLE_SYSTEM_LOCK=true
 - ✅ Retry limits (10 attempts by default, configurable)
 
 **How It Works:**
+
 1. Server starts → waits 3 seconds
 2. Attempts to connect CNC (default: COM4 or /dev/ttyUSB0)
 3. Attempts to connect Box (default: COM3 or /dev/ttyACM0)
@@ -90,6 +104,7 @@ ENABLE_SYSTEM_LOCK=true
 5. Broadcasts connection events via Socket.IO
 
 **Configuration:**
+
 ```javascript
 // In hardware.config.js
 AUTO_CONNECT: {
@@ -104,59 +119,71 @@ AUTO_CONNECT: {
 ```
 
 ### 5. Event Listener Tracker (Memory Leak Prevention)
+
 **File:** `Backend/src/utils/listenerTracker.js`
 
 **Purpose:**
+
 - Tracks all event listeners to prevent memory leaks
 - Auto-cleanup with configurable timeouts
 - Warns when too many listeners on one event
 - Automatic removal on timeout or error
 
 **Usage:**
+
 ```javascript
-import listenerTracker from './utils/listenerTracker.js';
+import listenerTracker from "./utils/listenerTracker.js";
 
 // Register listener with auto-cleanup
 const listenerId = listenerTracker.register(
   serialParser,
-  'data',
-  (data) => { /* handle data */ },
+  "data",
+  (data) => {
+    /* handle data */
+  },
   {
-    id: 'gcode-sender',
-    timeout: 120000,  // Auto-cleanup after 2 minutes
-    once: false,      // Set true for one-time listeners
-    emitterId: 'cnc-port'
+    id: "gcode-sender",
+    timeout: 120000, // Auto-cleanup after 2 minutes
+    once: false, // Set true for one-time listeners
+    emitterId: "cnc-port",
   }
 );
 
 // Manual cleanup
-listenerTracker.remove(serialParser, 'data', listenerId);
+listenerTracker.remove(serialParser, "data", listenerId);
 ```
 
 ### 6. Auto-Connect Integration
+
 **File:** `Backend/src/services/autoConnect.js`
 
 **Purpose:**
+
 - Bridges existing controllers with Connection Manager
 - Provides notification helpers for controllers
 - Extensible for future hardware types
 
 ### 7. Platform Compatibility
+
 **Changes:**
+
 - Removed Linux-specific `stty` command
 - Added OS detection in config
 - Platform-aware default ports
 
 ### 8. Server Improvements
+
 **File:** `Backend/index.js`
 
 **New Features:**
+
 - Health check endpoint: `GET /api/health`
 - Connection status in Socket.IO
 - Graceful shutdown (CTRL+C)
 - Better startup logging
 
 **Example Health Check Response:**
+
 ```json
 {
   "status": "ok",
@@ -214,17 +241,17 @@ Success → Reset retry counter
 The frontend will receive Socket.IO events:
 
 ```javascript
-socket.on('connection:connected', ({ deviceType }) => {
+socket.on("connection:connected", ({ deviceType }) => {
   console.log(`${deviceType} connected!`);
   // Update UI
 });
 
-socket.on('connection:disconnected', ({ deviceType, reason }) => {
+socket.on("connection:disconnected", ({ deviceType, reason }) => {
   console.log(`${deviceType} disconnected: ${reason}`);
   // Show warning
 });
 
-socket.on('connection:error', ({ deviceType, error }) => {
+socket.on("connection:error", ({ deviceType, error }) => {
   console.log(`${deviceType} error: ${error}`);
   // Show error
 });
@@ -311,12 +338,12 @@ AUTO_CONNECT: {
 
 ```javascript
 // CNC
-CNC_CONFIG.SERIAL.DEFAULT_PORT = "COM5";  // Windows
-CNC_CONFIG.SERIAL.DEFAULT_PORT = "/dev/ttyUSB1";  // Linux
+CNC_CONFIG.SERIAL.DEFAULT_PORT = "COM5"; // Windows
+CNC_CONFIG.SERIAL.DEFAULT_PORT = "/dev/ttyUSB1"; // Linux
 
 // Box
-BOX_CONFIG.SERIAL.DEFAULT_PORT = "COM6";  // Windows
-BOX_CONFIG.SERIAL.DEFAULT_PORT = "/dev/ttyACM1";  // Linux
+BOX_CONFIG.SERIAL.DEFAULT_PORT = "COM6"; // Windows
+BOX_CONFIG.SERIAL.DEFAULT_PORT = "/dev/ttyACM1"; // Linux
 ```
 
 ## 🔮 Future ESP32 Remote Integration
@@ -366,26 +393,31 @@ That's it! The infrastructure is ready.
 The following critical improvements still need implementation:
 
 ### 1. Add Mutex Locks (Prevents Race Conditions) ⚠️ CRITICAL
+
 - **Files:** serialController.js, boxController.js, queueProcessor.js
 - **Why:** Prevents simultaneous G-code sending that causes position corruption
 - **How:** Use async-mutex library already installed
 
 ### 2. Fix Event Listener Leaks
+
 - **Files:** serialController.js (lines 563-595), boxController.js
 - **Why:** Memory grows over time, slows system
 - **How:** Use listenerTracker.js already created
 
 ### 3. Add Retry Logic for Camera
+
 - **File:** cameraController.js
 - **Why:** Single network hiccup fails entire capture
 - **How:** 3 retries with exponential backoff
 
 ### 4. Unify State Management
+
 - **Files:** boxController.js, serialController.js
 - **Why:** Multiple sources of truth (isConnected + status.connected)
 - **How:** Single state object per device
 
 ### 5. Refactor Complex Handlers
+
 - **File:** boxController.js (DRAWING_BUTTON_PRESSED)
 - **Why:** 100+ line function is hard to debug
 - **How:** Split into smaller functions
@@ -400,6 +432,7 @@ The following critical improvements still need implementation:
 ## 🧪 How to Verify Improvements
 
 ### Test 1: Queue Persistence Backup
+
 ```bash
 # Corrupt the queue file
 echo "invalid json" > Backend/data/queue.json
@@ -411,12 +444,14 @@ npm run dev
 ```
 
 ### Test 2: Lock System Security
+
 ```bash
 # Try unlocking with wrong code 6 times
 # Should get locked out for 15 minutes
 ```
 
 ### Test 3: Auto-Connect
+
 ```bash
 # Start server with hardware OFF
 # Turn on hardware
@@ -426,6 +461,7 @@ npm run dev
 ## 📞 Support
 
 If you encounter issues:
+
 1. Check console logs for error messages
 2. Check health endpoint: `http://localhost:5000/api/health`
 3. Review connection status via Socket.IO events
@@ -434,12 +470,14 @@ If you encounter issues:
 ## 🎉 Summary
 
 **What You Asked For:**
+
 - ✅ Remove complex logic → Centralized config
 - ✅ Fix edge cases → Better error handling
 - ✅ Auto-connect when hardware powers on → Connection Manager
 - ✅ Support for future ESP32 remote → Architecture ready
 
 **What You Got:**
+
 - ✅ Auto-connect and auto-reconnect
 - ✅ Queue backup and recovery
 - ✅ Secure lock system
@@ -449,6 +487,7 @@ If you encounter issues:
 - ✅ Better logging and monitoring
 
 **Next Steps:**
+
 1. Test auto-connect with your hardware
 2. Monitor for memory leaks during extended use
 3. Implement remaining mutex locks if needed

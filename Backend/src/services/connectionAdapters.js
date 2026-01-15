@@ -1,6 +1,6 @@
 /**
  * Connection Adapters
- * 
+ *
  * Adapters that wrap existing controllers to work with the Connection Manager.
  * This allows auto-connect functionality without heavily modifying controller code.
  */
@@ -25,7 +25,7 @@ export class CNCConnectionAdapter {
   async connect(port) {
     try {
       console.log(`[CNCAdapter] Attempting connection to ${port}...`);
-      
+
       // Call the controller's connect endpoint logic
       // Note: We need to expose this in the controller or call via HTTP
       const response = await fetch(`http://localhost:5000/api/serial/connect`, {
@@ -35,7 +35,7 @@ export class CNCConnectionAdapter {
       });
 
       const result = await response.json();
-      
+
       if (result.success) {
         this.port = port;
         connectionManager.handleConnect("cnc");
@@ -57,9 +57,12 @@ export class CNCConnectionAdapter {
    */
   async disconnect() {
     try {
-      const response = await fetch(`http://localhost:5000/api/serial/disconnect`, {
-        method: "POST",
-      });
+      const response = await fetch(
+        `http://localhost:5000/api/serial/disconnect`,
+        {
+          method: "POST",
+        }
+      );
 
       const result = await response.json();
       this.port = null;
@@ -89,7 +92,7 @@ export class BoxConnectionAdapter {
   async connect(port) {
     try {
       console.log(`[BoxAdapter] Attempting connection to ${port}...`);
-      
+
       const response = await fetch(`http://localhost:5000/api/box/connect`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -97,7 +100,7 @@ export class BoxConnectionAdapter {
       });
 
       const result = await response.json();
-      
+
       if (result.success) {
         this.port = port;
         connectionManager.handleConnect("box");
@@ -151,7 +154,7 @@ export class RemoteConnectionAdapter {
   async connect(ipAddress) {
     try {
       console.log(`[RemoteAdapter] Attempting connection to ${ipAddress}...`);
-      
+
       // Future implementation: HTTP or WebSocket connection to ESP32
       // For now, return not implemented
       return { success: false, error: "Remote connection not yet implemented" };

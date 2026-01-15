@@ -1,4 +1,8 @@
-import { lockSystem, unlockSystem, getSystemStatus } from "../middleware/lockMiddleware.js";
+import {
+  lockSystem,
+  unlockSystem,
+  getSystemStatus,
+} from "../middleware/lockMiddleware.js";
 
 export default function systemController(app) {
   // Lock the system
@@ -19,13 +23,13 @@ export default function systemController(app) {
       const { code } = req.body;
       const ip = req.ip || req.connection.remoteAddress || "unknown";
       const result = await unlockSystem(code, ip);
-      
+
       if (result.success) {
         console.log(`System unlocked successfully by ${ip}`);
       } else {
         console.log(`Failed unlock attempt from ${ip}: ${result.error}`);
       }
-      
+
       res.json(result);
     } catch (error) {
       console.error("Error unlocking system:", error);

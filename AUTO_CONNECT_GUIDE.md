@@ -1,6 +1,7 @@
 # Auto-Connect Quick Start Guide
 
 ## 🎯 Goal
+
 Enable automatic connection to CNC and Box when hardware powers on, even if the server is already running.
 
 ## ⚡ Quick Setup (3 Steps)
@@ -14,7 +15,7 @@ The auto-connect feature is **enabled by default**. Configuration is in:
 AUTO_CONNECT: {
   ENABLED: true,          // ✅ Already enabled
   CNC_ENABLED: true,      // ✅ CNC will auto-connect
-  BOX_ENABLED: true,      // ✅ Box will auto-connect  
+  BOX_ENABLED: true,      // ✅ Box will auto-connect
   STARTUP_DELAY: 3000,    // Wait 3 seconds after server start
   RETRY_INTERVAL: 10000,  // Retry every 10 seconds
   MAX_RETRIES: 10,        // Try 10 times (0 = infinite)
@@ -29,6 +30,7 @@ npm run dev
 ```
 
 You'll see:
+
 ```
 🚀 NEXABOARD SERVER STARTED
 🔌 Auto-connect: Enabled
@@ -42,17 +44,20 @@ Auto-connect is working! Test it:
 ## 🧪 Test Scenarios
 
 ### Scenario A: Hardware Already On
+
 1. Power on CNC and Box
 2. Start server
 3. **Result:** Both connect within 3-5 seconds ✅
 
 ### Scenario B: Hardware Powers On Later (YOUR USE CASE!)
+
 1. Start server (hardware OFF)
 2. You'll see retry messages every 10s
 3. Power on CNC and Box
 4. **Result:** Both connect within 10 seconds ✅
 
 ### Scenario C: Cable Disconnects
+
 1. Everything connected
 2. Unplug cable
 3. Server detects disconnect
@@ -62,6 +67,7 @@ Auto-connect is working! Test it:
 ## 📊 Monitoring
 
 ### Console Logs
+
 ```
 [ConnectionManager] cnc connection attempt #1...
 [ConnectionManager] ✅ cnc connected successfully
@@ -70,11 +76,13 @@ Auto-connect is working! Test it:
 ```
 
 ### Health Check API
+
 ```bash
 curl http://localhost:5000/api/health
 ```
 
 Response:
+
 ```json
 {
   "status": "ok",
@@ -101,15 +109,15 @@ If your frontend needs to show connection status:
 
 ```javascript
 // In your React component or main app
-socket.on('connection:connected', ({ deviceType }) => {
+socket.on("connection:connected", ({ deviceType }) => {
   toast.success(`${deviceType} connected!`);
 });
 
-socket.on('connection:disconnected', ({ deviceType, reason }) => {
+socket.on("connection:disconnected", ({ deviceType, reason }) => {
   toast.warning(`${deviceType} disconnected: ${reason}`);
 });
 
-socket.on('connection:error', ({ deviceType, error }) => {
+socket.on("connection:error", ({ deviceType, error }) => {
   toast.error(`${deviceType} error: ${error}`);
 });
 ```
@@ -132,10 +140,10 @@ Using different USB ports? Edit `hardware.config.js`:
 
 ```javascript
 // CNC Serial Config
-CNC_CONFIG.SERIAL.DEFAULT_PORT = "COM5";  // Change from COM4
+CNC_CONFIG.SERIAL.DEFAULT_PORT = "COM5"; // Change from COM4
 
-// Box Serial Config  
-BOX_CONFIG.SERIAL.DEFAULT_PORT = "COM7";  // Change from COM3
+// Box Serial Config
+BOX_CONFIG.SERIAL.DEFAULT_PORT = "COM7"; // Change from COM3
 ```
 
 ### Disable Auto-Connect (if needed)
@@ -154,13 +162,15 @@ AUTO_CONNECT: {
 ### "Connection Manager" not trying to connect
 
 **Check 1:** Is auto-connect enabled?
+
 ```javascript
 // In hardware.config.js
-AUTO_CONNECT.ENABLED = true  // Must be true
+AUTO_CONNECT.ENABLED = true; // Must be true
 ```
 
 **Check 2:** Are controllers registered?
 Look for these logs on startup:
+
 ```
 [AutoConnect] ✅ CNC controller registered
 [AutoConnect] ✅ Box controller registered
@@ -171,6 +181,7 @@ If missing, controllers aren't integrated yet (see REFACTORING_SUMMARY.md)
 ### Retries stop after 10 attempts
 
 This is by design. Change in config:
+
 ```javascript
 MAX_RETRIES: 0,  // 0 = retry forever
 ```
@@ -178,6 +189,7 @@ MAX_RETRIES: 0,  // 0 = retry forever
 ### Wrong port detected
 
 The system uses platform-aware defaults:
+
 - **Windows:** COM4 (CNC), COM3 (Box)
 - **Linux:** /dev/ttyUSB0 (CNC), /dev/ttyACM0 (Box)
 
@@ -190,6 +202,7 @@ You'll see this if `ENABLED: false`. Set to `true` in config.
 ## 📋 What This Solves
 
 ✅ **Your Original Problem:**
+
 > "When I power on the hardware only (CNC not moving), I want the server to automatically try to connect to both Box and CNC so if I power on the hardware only it will work without I start the software"
 
 **Solution:** Now the server continuously tries to connect. When you power on the hardware, it connects within 10 seconds automatically!
@@ -223,6 +236,7 @@ Time    | Server | CNC  | Box  | Status
 ## 📞 Need Help?
 
 The system logs everything. If issues occur:
+
 1. Check server console logs
 2. Call health endpoint: `GET /api/health`
 3. Review `REFACTORING_SUMMARY.md` for details

@@ -1,6 +1,6 @@
 /**
  * Auto-Connect Integration
- * 
+ *
  * Integrates the Connection Manager with existing controllers by
  * creating direct connection methods that bypass HTTP endpoints.
  */
@@ -11,7 +11,7 @@ import HardwareConfig from "../config/hardware.config.js";
 /**
  * Register auto-connect handlers for controllers
  * This should be called after controllers are initialized
- * 
+ *
  * @param {Object} controllers - Object containing controller instances or connection functions
  */
 export function setupAutoConnect(controllers) {
@@ -22,7 +22,9 @@ export function setupAutoConnect(controllers) {
     const cncAdapter = {
       connect: async (port) => {
         try {
-          return await controllers.cnc.connect(port || HardwareConfig.CNC.SERIAL.DEFAULT_PORT);
+          return await controllers.cnc.connect(
+            port || HardwareConfig.CNC.SERIAL.DEFAULT_PORT
+          );
         } catch (error) {
           return { success: false, error: error.message };
         }
@@ -47,7 +49,9 @@ export function setupAutoConnect(controllers) {
     const boxAdapter = {
       connect: async (port) => {
         try {
-          return await controllers.box.connect(port || HardwareConfig.BOX.SERIAL.DEFAULT_PORT);
+          return await controllers.box.connect(
+            port || HardwareConfig.BOX.SERIAL.DEFAULT_PORT
+          );
         } catch (error) {
           return { success: false, error: error.message };
         }
@@ -72,7 +76,9 @@ export function setupAutoConnect(controllers) {
     const remoteAdapter = {
       connect: async (address) => {
         try {
-          return await controllers.remote.connect(address || HardwareConfig.REMOTE.CONNECTION.DEFAULT_IP);
+          return await controllers.remote.connect(
+            address || HardwareConfig.REMOTE.CONNECTION.DEFAULT_IP
+          );
         } catch (error) {
           return { success: false, error: error.message };
         }
@@ -96,7 +102,7 @@ export function setupAutoConnect(controllers) {
 /**
  * Create a connection method wrapper for controllers
  * This helps controllers notify the connection manager about their state
- * 
+ *
  * @param {string} deviceType - 'cnc' | 'box' | 'remote'
  * @returns {Object} Helper methods
  */

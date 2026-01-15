@@ -1,9 +1,9 @@
 /**
  * Centralized Hardware Configuration
- * 
+ *
  * All hardware-specific constants, dimensions, timing values, and connection parameters
  * are centralized here to avoid magic numbers scattered throughout the codebase.
- * 
+ *
  * @description This configuration supports multiple hardware types:
  * - CNC Machine (GRBL-based)
  * - Arduino Box Controller
@@ -32,17 +32,17 @@ export const CNC_CONFIG = {
 
   // Movement parameters
   MOVEMENT: {
-    FEED_RATE: 8000,           // mm/min for drawing
-    RAPID_RATE: 10000,         // mm/min for rapid positioning
-    PLUNGE_RATE: 500,          // mm/min for Z-axis movements
-    ACCELERATION: 1000,        // mm/s^2
+    FEED_RATE: 8000, // mm/min for drawing
+    RAPID_RATE: 10000, // mm/min for rapid positioning
+    PLUNGE_RATE: 500, // mm/min for Z-axis movements
+    ACCELERATION: 1000, // mm/s^2
   },
 
   // Erasing parameters
   ERASING: {
-    Y_STEP: 5,                 // mm between horizontal passes
-    OVERLAP: 0.5,              // mm overlap between passes
-    FEED_RATE: 8000,           // mm/min for erasing movements
+    Y_STEP: 5, // mm between horizontal passes
+    OVERLAP: 0.5, // mm overlap between passes
+    FEED_RATE: 8000, // mm/min for erasing movements
   },
 
   // Serial connection
@@ -57,17 +57,17 @@ export const CNC_CONFIG = {
 
   // GRBL-specific timing
   GRBL: {
-    INIT_TIME: 2500,           // ms to wait for GRBL initialization after connection
-    SOFT_RESET_DELAY: 100,     // ms to wait after soft reset
-    HOMING_TIMEOUT: 60000,     // ms maximum time for homing cycle
-    UNLOCK_DELAY: 100,         // ms to wait after unlock command
+    INIT_TIME: 2500, // ms to wait for GRBL initialization after connection
+    SOFT_RESET_DELAY: 100, // ms to wait after soft reset
+    HOMING_TIMEOUT: 60000, // ms maximum time for homing cycle
+    UNLOCK_DELAY: 100, // ms to wait after unlock command
   },
 
   // Response handling
   RESPONSE: {
-    TIMEOUT: 3000,             // ms to wait for GRBL response
+    TIMEOUT: 3000, // ms to wait for GRBL response
     MAX_CONSECUTIVE_TIMEOUTS: 5, // Number of timeouts before giving up
-    RETRY_DELAY: 500,          // ms to wait before retry
+    RETRY_DELAY: 500, // ms to wait before retry
   },
 };
 
@@ -86,30 +86,30 @@ export const BOX_CONFIG = {
 
   // Authentication
   AUTH: {
-    PASSWORD: "1111",          // Default Box password
-    LOGIN_TIMEOUT: 5000,       // ms to wait for login confirmation
-    MAX_LOGIN_ATTEMPTS: 3,     // Maximum failed login attempts
-    LOCKOUT_DURATION: 300000,  // ms to lock out after max attempts (5 minutes)
+    PASSWORD: "1111", // Default Box password
+    LOGIN_TIMEOUT: 5000, // ms to wait for login confirmation
+    MAX_LOGIN_ATTEMPTS: 3, // Maximum failed login attempts
+    LOCKOUT_DURATION: 300000, // ms to lock out after max attempts (5 minutes)
   },
 
   // Command handling
   COMMANDS: {
-    TIMEOUT: 2000,             // ms window for command differentiation
-    MAX_LOG_SIZE: 100,         // Maximum activity log entries
+    TIMEOUT: 2000, // ms window for command differentiation
+    MAX_LOG_SIZE: 100, // Maximum activity log entries
   },
 
   // Mode transitions
   MODES: {
-    SWITCH_DELAY: 500,         // ms to wait when switching modes
-    IDLE_TIMEOUT: 300000,      // ms before auto-logout (5 minutes)
+    SWITCH_DELAY: 500, // ms to wait when switching modes
+    IDLE_TIMEOUT: 300000, // ms before auto-logout (5 minutes)
   },
 
   // Reconnection
   RECONNECT: {
-    MAX_ATTEMPTS: 5,           // Maximum reconnection attempts
-    INITIAL_DELAY: 1000,       // ms initial delay before reconnect
-    MAX_DELAY: 30000,          // ms maximum delay between attempts
-    BACKOFF_MULTIPLIER: 2,     // Exponential backoff multiplier
+    MAX_ATTEMPTS: 5, // Maximum reconnection attempts
+    INITIAL_DELAY: 1000, // ms initial delay before reconnect
+    MAX_DELAY: 30000, // ms maximum delay between attempts
+    BACKOFF_MULTIPLIER: 2, // Exponential backoff multiplier
   },
 
   // Pen configurations
@@ -117,12 +117,12 @@ export const BOX_CONFIG = {
     pen1: {
       name: "Pen 1 (Black)",
       gcode: [
-        "G90",                 // Absolute positioning
-        "G0 Z-2.3",            // Pen up
-        "G0 X10 Y10",          // Move to pen 1 position
-        "G0 Z0",               // Pen down to grab
-        "G4 P500",             // Dwell 500ms
-        "G0 Z-2.3",            // Pen up
+        "G90", // Absolute positioning
+        "G0 Z-2.3", // Pen up
+        "G0 X10 Y10", // Move to pen 1 position
+        "G0 Z0", // Pen down to grab
+        "G4 P500", // Dwell 500ms
+        "G0 Z-2.3", // Pen up
       ],
     },
     pen2: {
@@ -130,7 +130,7 @@ export const BOX_CONFIG = {
       gcode: [
         "G90",
         "G0 Z-2.3",
-        "G0 X50 Y10",          // Move to pen 2 position
+        "G0 X50 Y10", // Move to pen 2 position
         "G0 Z0",
         "G4 P500",
         "G0 Z-2.3",
@@ -141,7 +141,7 @@ export const BOX_CONFIG = {
       gcode: [
         "G90",
         "G0 Z-2.3",
-        "G0 X80 Y10",          // Move to eraser position
+        "G0 X80 Y10", // Move to eraser position
         "G0 Z0",
         "G4 P500",
         "G0 Z-2.3",
@@ -158,20 +158,20 @@ export const REMOTE_CONFIG = {
     DEFAULT_IP: "192.168.1.100",
     HTTP_PORT: 80,
     WS_PORT: 81,
-    TIMEOUT: 5000,             // ms for HTTP requests
+    TIMEOUT: 5000, // ms for HTTP requests
   },
 
   // Command protocol
   COMMANDS: {
     RETRY_ATTEMPTS: 3,
-    RETRY_DELAY: 1000,         // ms between retries
-    ACK_TIMEOUT: 2000,         // ms to wait for acknowledgment
+    RETRY_DELAY: 1000, // ms between retries
+    ACK_TIMEOUT: 2000, // ms to wait for acknowledgment
   },
 
   // Status polling
   POLLING: {
     ENABLED: true,
-    INTERVAL: 5000,            // ms between status checks
+    INTERVAL: 5000, // ms between status checks
   },
 };
 
@@ -182,22 +182,22 @@ export const CAMERA_CONFIG = {
   CONNECTION: {
     DEFAULT_URL: "http://192.168.1.184",
     STREAM_PORT: 81,
-    TIMEOUT: 10000,            // ms for capture requests
+    TIMEOUT: 10000, // ms for capture requests
   },
 
   // Capture settings
   CAPTURE: {
     RETRY_ATTEMPTS: 3,
-    RETRY_DELAY: 1000,         // ms between retries
-    MAX_SIZE: 5242880,         // 5MB maximum image size
+    RETRY_DELAY: 1000, // ms between retries
+    MAX_SIZE: 5242880, // 5MB maximum image size
     ALLOWED_FORMATS: ["image/jpeg", "image/png"],
   },
 
   // Storage
   STORAGE: {
     BASE_PATH: "uploads/captures",
-    MAX_CAPTURES: 100,         // Maximum stored captures
-    CLEANUP_THRESHOLD: 90,     // Cleanup when 90% full
+    MAX_CAPTURES: 100, // Maximum stored captures
+    CLEANUP_THRESHOLD: 90, // Cleanup when 90% full
   },
 };
 
@@ -206,23 +206,23 @@ export const CAMERA_CONFIG = {
 export const QUEUE_CONFIG = {
   // Processing
   PROCESSING: {
-    MAX_CONCURRENT: 1,         // Only one queue item at a time
-    RETRY_ATTEMPTS: 2,         // Retry failed items
-    RETRY_DELAY: 5000,         // ms between retries
+    MAX_CONCURRENT: 1, // Only one queue item at a time
+    RETRY_ATTEMPTS: 2, // Retry failed items
+    RETRY_DELAY: 5000, // ms between retries
   },
 
   // Persistence
   PERSISTENCE: {
-    SAVE_DEBOUNCE: 500,        // ms to debounce save operations
+    SAVE_DEBOUNCE: 500, // ms to debounce save operations
     BACKUP_ENABLED: true,
-    MAX_BACKUPS: 5,            // Keep last 5 backups
+    MAX_BACKUPS: 5, // Keep last 5 backups
     AUTO_SAVE: true,
   },
 
   // Timeouts
   TIMEOUTS: {
-    ITEM_PROCESSING: 600000,   // 10 minutes max per item
-    QUEUE_IDLE: 300000,        // 5 minutes before marking queue idle
+    ITEM_PROCESSING: 600000, // 10 minutes max per item
+    QUEUE_IDLE: 300000, // 5 minutes before marking queue idle
   },
 };
 
@@ -234,15 +234,15 @@ export const SYSTEM_CONFIG = {
     ENABLED: true,
     CNC_ENABLED: true,
     BOX_ENABLED: true,
-    REMOTE_ENABLED: false,     // Future: ESP32 remote
-    STARTUP_DELAY: 3000,       // ms to wait before auto-connect
-    RETRY_INTERVAL: 10000,     // ms between retry attempts
-    MAX_RETRIES: 10,           // Maximum auto-connect retries (0 = infinite)
+    REMOTE_ENABLED: false, // Future: ESP32 remote
+    STARTUP_DELAY: 3000, // ms to wait before auto-connect
+    RETRY_INTERVAL: 10000, // ms between retry attempts
+    MAX_RETRIES: 10, // Maximum auto-connect retries (0 = infinite)
   },
 
   // Platform-specific
   PLATFORM: {
-    OS: process.platform,      // 'win32', 'linux', 'darwin'
+    OS: process.platform, // 'win32', 'linux', 'darwin'
     IS_WINDOWS: process.platform === "win32",
     IS_LINUX: process.platform === "linux",
     IS_MAC: process.platform === "darwin",
@@ -251,14 +251,14 @@ export const SYSTEM_CONFIG = {
   // Logging
   LOGGING: {
     LEVEL: process.env.LOG_LEVEL || "info", // 'debug', 'info', 'warn', 'error'
-    MAX_LOG_SIZE: 1000,        // Maximum log entries in memory
+    MAX_LOG_SIZE: 1000, // Maximum log entries in memory
     CONSOLE_COLORS: true,
   },
 
   // Event listener management
   LISTENERS: {
-    MAX_PER_EVENT: 10,         // Warn if more than this many listeners
-    CLEANUP_TIMEOUT: 120000,   // ms before force cleanup
+    MAX_PER_EVENT: 10, // Warn if more than this many listeners
+    CLEANUP_TIMEOUT: 120000, // ms before force cleanup
     TRACK_LEAKS: true,
   },
 };
@@ -271,24 +271,36 @@ export const SECURITY_CONFIG = {
     ENABLED: process.env.ENABLE_SYSTEM_LOCK === "true",
     SECRET_CODE: process.env.LOCK_SECRET || "1234", // Override via environment
     MAX_ATTEMPTS: 5,
-    LOCKOUT_DURATION: 900000,  // 15 minutes
-    REQUIRE_HASH: true,        // Use bcrypt for password verification
+    LOCKOUT_DURATION: 900000, // 15 minutes
+    REQUIRE_HASH: true, // Use bcrypt for password verification
   },
 
   // Rate limiting
   RATE_LIMIT: {
-    WINDOW_MS: 60000,          // 1 minute
-    MAX_REQUESTS: 100,         // Max requests per window
+    WINDOW_MS: 60000, // 1 minute
+    MAX_REQUESTS: 100, // Max requests per window
     SKIP_SUCCESSFUL: false,
   },
 
   // Input validation
   VALIDATION: {
-    MAX_GCODE_LINES: 100000,   // Maximum G-code lines per job
+    MAX_GCODE_LINES: 100000, // Maximum G-code lines per job
     MAX_GCODE_LINE_LENGTH: 256, // Maximum characters per G-code line
     ALLOWED_GCODES: [
-      "G0", "G1", "G2", "G3", "G4", "G17", "G20", "G21", "G90", "G91",
-      "M3", "M5", "M8", "M9"
+      "G0",
+      "G1",
+      "G2",
+      "G3",
+      "G4",
+      "G17",
+      "G20",
+      "G21",
+      "G90",
+      "G91",
+      "M3",
+      "M5",
+      "M8",
+      "M9",
     ],
     FORBIDDEN_GCODES: ["M999"], // Reset command - dangerous
   },
@@ -322,7 +334,11 @@ export function getSerialConfig(deviceType) {
  * @returns {number} Delay in milliseconds
  */
 export function getRetryDelay(attempt, config) {
-  const { INITIAL_DELAY = 1000, MAX_DELAY = 30000, BACKOFF_MULTIPLIER = 2 } = config;
+  const {
+    INITIAL_DELAY = 1000,
+    MAX_DELAY = 30000,
+    BACKOFF_MULTIPLIER = 2,
+  } = config;
   const delay = INITIAL_DELAY * Math.pow(BACKOFF_MULTIPLIER, attempt);
   return Math.min(delay, MAX_DELAY);
 }
@@ -334,7 +350,7 @@ export function getRetryDelay(attempt, config) {
  */
 export function validateGcodeLine(line) {
   const trimmed = line.trim().toUpperCase();
-  
+
   // Empty lines and comments are okay
   if (!trimmed || trimmed.startsWith("(") || trimmed.startsWith(";")) {
     return { valid: true };
@@ -387,7 +403,7 @@ export default {
   QUEUE: QUEUE_CONFIG,
   SYSTEM: SYSTEM_CONFIG,
   SECURITY: SECURITY_CONFIG,
-  
+
   // Helper functions
   getSerialConfig,
   getRetryDelay,

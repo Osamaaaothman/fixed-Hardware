@@ -1,11 +1,11 @@
 /**
  * Hardware Connection Manager
- * 
+ *
  * Manages automatic connection and reconnection to hardware devices:
  * - CNC Machine (GRBL via Serial)
  * - Box Controller (Arduino via Serial)
  * - Remote Controller (ESP32 via WiFi - future)
- * 
+ *
  * Features:
  * - Auto-connect on startup
  * - Auto-reconnect on disconnection
@@ -88,7 +88,8 @@ class ConnectionManager {
     }
 
     this.connections[deviceType].controller = controller;
-    this.connections[deviceType].enabled = HardwareConfig.shouldAutoConnect(deviceType);
+    this.connections[deviceType].enabled =
+      HardwareConfig.shouldAutoConnect(deviceType);
 
     console.log(
       `[ConnectionManager] Registered ${deviceType} controller (auto-connect: ${this.connections[deviceType].enabled})`
@@ -102,11 +103,15 @@ class ConnectionManager {
     const { ENABLED, STARTUP_DELAY } = HardwareConfig.SYSTEM.AUTO_CONNECT;
 
     if (!ENABLED) {
-      console.log("[ConnectionManager] Auto-connect is disabled in configuration");
+      console.log(
+        "[ConnectionManager] Auto-connect is disabled in configuration"
+      );
       return;
     }
 
-    console.log(`[ConnectionManager] Starting auto-connect in ${STARTUP_DELAY}ms...`);
+    console.log(
+      `[ConnectionManager] Starting auto-connect in ${STARTUP_DELAY}ms...`
+    );
 
     // Wait for system startup delay
     this.startupTimer = setTimeout(() => {
@@ -118,7 +123,9 @@ class ConnectionManager {
    * Attempt to connect all enabled devices
    */
   async attemptConnectAll() {
-    console.log("[ConnectionManager] Attempting to connect all enabled devices...");
+    console.log(
+      "[ConnectionManager] Attempting to connect all enabled devices..."
+    );
 
     const promises = [];
 
@@ -145,7 +152,9 @@ class ConnectionManager {
     }
 
     if (!state.controller) {
-      console.log(`[ConnectionManager] ${deviceType} controller not registered yet`);
+      console.log(
+        `[ConnectionManager] ${deviceType} controller not registered yet`
+      );
       return false;
     }
 
@@ -155,7 +164,9 @@ class ConnectionManager {
     }
 
     if (state.connecting) {
-      console.log(`[ConnectionManager] ${deviceType} connection already in progress`);
+      console.log(
+        `[ConnectionManager] ${deviceType} connection already in progress`
+      );
       return false;
     }
 
@@ -190,7 +201,9 @@ class ConnectionManager {
         state.retryCount = 0;
         state.error = null;
 
-        console.log(`[ConnectionManager] ✅ ${deviceType} connected successfully`);
+        console.log(
+          `[ConnectionManager] ✅ ${deviceType} connected successfully`
+        );
         this.emitEvent("onConnect", deviceType, { port });
 
         return true;
@@ -238,7 +251,9 @@ class ConnectionManager {
     );
 
     console.log(
-      `[ConnectionManager] ${deviceType} retry scheduled in ${Math.round(delay / 1000)}s (attempt ${state.retryCount + 1})`
+      `[ConnectionManager] ${deviceType} retry scheduled in ${Math.round(
+        delay / 1000
+      )}s (attempt ${state.retryCount + 1})`
     );
 
     this.retryTimers[deviceType] = setTimeout(() => {
@@ -302,7 +317,11 @@ class ConnectionManager {
     const state = this.connections[deviceType];
     state.enabled = enabled;
 
-    console.log(`[ConnectionManager] ${deviceType} auto-connect ${enabled ? "enabled" : "disabled"}`);
+    console.log(
+      `[ConnectionManager] ${deviceType} auto-connect ${
+        enabled ? "enabled" : "disabled"
+      }`
+    );
 
     if (enabled && !state.connected && !state.connecting) {
       this.attemptConnect(deviceType);

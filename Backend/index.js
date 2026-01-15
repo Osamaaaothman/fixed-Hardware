@@ -19,7 +19,7 @@ const io = new Server(httpServer, {
 });
 
 const PORT = process.env.PORT || 5000;
-const HOST = process.env.HOST || '0.0.0.0';
+const HOST = process.env.HOST || "0.0.0.0";
 
 // Middleware
 app.use(cors());
@@ -102,7 +102,11 @@ httpServer.listen(PORT, HOST, async () => {
   console.log(`📍 Local:  http://${HOST}:${PORT}`);
   console.log(`🌐 Network: http://<raspberry-pi-ip>:${PORT}`);
   console.log(`⚙️  Platform: ${HardwareConfig.SYSTEM.PLATFORM.OS}`);
-  console.log(`🔌 Auto-connect: ${HardwareConfig.SYSTEM.AUTO_CONNECT.ENABLED ? "Enabled" : "Disabled"}`);
+  console.log(
+    `🔌 Auto-connect: ${
+      HardwareConfig.SYSTEM.AUTO_CONNECT.ENABLED ? "Enabled" : "Disabled"
+    }`
+  );
   console.log("=".repeat(60));
 
   // Initialize queue after server starts
@@ -118,16 +122,16 @@ httpServer.listen(PORT, HOST, async () => {
 // Graceful shutdown
 process.on("SIGINT", () => {
   console.log("\n⚠️  Shutting down gracefully...");
-  
+
   // Stop connection manager
   connectionManager.stop();
-  
+
   // Close HTTP server
   httpServer.close(() => {
     console.log("✅ Server closed");
     process.exit(0);
   });
-  
+
   // Force exit after 10 seconds
   setTimeout(() => {
     console.error("❌ Forced shutdown after timeout");
