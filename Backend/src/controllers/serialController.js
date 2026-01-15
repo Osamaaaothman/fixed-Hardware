@@ -34,10 +34,14 @@ let lastSuccessfulLine = 0;
 const configureSerialPort = async (portPath, baudRate = 115200) => {
   try {
     // SerialPort options handle DTR/RTS without external commands
-    console.log(`[SERIAL] Configuring port ${portPath} (platform: ${HardwareConfig.SYSTEM.PLATFORM.OS})`);
+    console.log(
+      `[SERIAL] Configuring port ${portPath} (platform: ${HardwareConfig.SYSTEM.PLATFORM.OS})`
+    );
     return true;
   } catch (error) {
-    console.warn(`[SERIAL] Warning: Port configuration issue: ${error.message}`);
+    console.warn(
+      `[SERIAL] Warning: Port configuration issue: ${error.message}`
+    );
     return false;
   }
 };
@@ -80,9 +84,12 @@ router.post("/send", async (req, res) => {
 
   // CRITICAL FIX: Use mutex to prevent race conditions
   if (gcodeOperationMutex.isLocked()) {
-    console.log("[SERIAL/SEND] ⚠️ Rejecting request - G-code operation already in progress (mutex locked)");
+    console.log(
+      "[SERIAL/SEND] ⚠️ Rejecting request - G-code operation already in progress (mutex locked)"
+    );
     return res.status(409).json({
-      error: "A drawing operation is already in progress. Please wait for it to complete.",
+      error:
+        "A drawing operation is already in progress. Please wait for it to complete.",
       locked: true,
     });
   }
@@ -226,8 +233,8 @@ router.post("/send", async (req, res) => {
       await new Promise((resolve) => setTimeout(resolve, 500));
     }
 
-    // CRITICAL: Disable HUPCL BEFORE opening port
-    await disableHUPCL(port, baudRate);
+    // Configure serial port (cross-platform)
+    await configureSerialPort(port, baudRate);
 
     // Create new serial port connection
     // Disable DTR/RTS/HUPCL to prevent Arduino auto-reset
@@ -621,32 +628,32 @@ function sendGcodeLinesSSE(
         sendNextLine();
       }, HardwareConfig.CNC.RESPONSE.TIMEOUT);
     }
-  };  // End of dataHandler
+  } // End of dataHandler
 
   // Register listener with tracker for automatic cleanup
-  const listenerId = listenerTracker.register(
-    parser,
-    "data",
-    dataHandler,
-    {
-      id: `gcode-send-${Date.now()}`,
-      timeout: HardwareConfig.SYSTEM.LISTENERS.CLEANUP_TIMEOUT,
-      once: false,
-      emitterId: port === persistentPort ? "persistent-cnc" : "temp-cnc",
-    }
-  );
+  const listenerId = listenerTracker.register(parser, "data", dataHandler, {
+    id: `gcode-send-${Date.now()}`,
+    timeout: HardwareConfig.SYSTEM.LISTENERS.CLEANUP_TIMEOUT,
+    once: false,
+    emitterId: port === persistentPort ? "persistent-cnc" : "temp-cnc",
+  });
 
   // Enhanced cleanup function to remove listener properly
   const enhancedCleanup = () => {
     // Remove tracked listener
-    listenerTracker.remove(parser, "data", listenerId, port === persistentPort ? "persistent-cnc" : "temp-cnc");
-    
+    listenerTracker.remove(
+      parser,
+      "data",
+      listenerId,
+      port === persistentPort ? "persistent-cnc" : "temp-cnc"
+    );
+
     // Clear any pending timeout
     if (responseTimeout) {
       clearTimeout(responseTimeout);
       responseTimeout = null;
     }
-    
+
     // Release mutex if still locked
     cleanup();
   };
@@ -738,8 +745,8 @@ router.post("/connect", async (req, res) => {
 
     console.log(`Opening persistent connection to ${port}`);
 
-    // CRITICAL: Disable HUPCL BEFORE opening port
-    await disableHUPCL(port, baudRate);
+    // Configure serial port (cross-platform)
+    await configureSerialPort(port, baudRate);
 
     // Create persistent serial port
     // Disable DTR/RTS/HUPCL to prevent Arduino auto-reset
@@ -960,8 +967,8 @@ router.post("/command", async (req, res) => {
     // Fall back to temporary connection if no persistent connection
     console.log(`Attempting to send command to ${port}: ${command}`);
 
-    // CRITICAL: Disable HUPCL BEFORE opening port
-    await disableHUPCL(port, baudRate);
+    // Configure serial port (cross-platform)
+    await configureSerialPort(port, baudRate);
 
     // Create temporary serial connection
     // Disable DTR/RTS/HUPCL to prevent Arduino auto-reset
