@@ -1,6 +1,14 @@
 {
   "captures": [
     {
+      "id": "7ab53fc3-daaf-49ed-a46d-41cab203128b",
+      "name": "Screenshot_01-15-2026_14-02-15",
+      "filename": "capture-1768478536515.jpg",
+      "timestamp": 1768478536515,
+      "date": "2026-01-15T12:02:16.516Z",
+      "size": 6093
+    },
+    {
       "id": "5c3eaf95-ac4f-4b41-aff1-8f74cf454d7d",
       "name": "Screenshot_01-15-2026_13-38-53",
       "filename": "capture-1768477134250.jpg",
@@ -14,38 +22,6 @@
       "filename": "capture-1768477096827.jpg",
       "timestamp": 1768477096827,
       "date": "2026-01-15T11:38:16.828Z",
-      "size": 6121
-    },
-    {
-      "id": "c4499227-3cd4-4a74-8e7c-ecca8f31a752",
-      "name": "Screenshot_01-15-2026_13-37-50",
-      "filename": "capture-1768477071780.jpg",
-      "timestamp": 1768477071780,
-      "date": "2026-01-15T11:37:51.780Z",
-      "size": 6121
-    },
-    {
-      "id": "1b4255e8-a321-4e1a-b85e-f8d884b311e4",
-      "name": "Screenshot_01-15-2026_13-37-47",
-      "filename": "capture-1768477068908.jpg",
-      "timestamp": 1768477068908,
-      "date": "2026-01-15T11:37:48.908Z",
-      "size": 6121
-    },
-    {
-      "id": "825e476c-25b1-4543-9861-bfba826816c0",
-      "name": "kk",
-      "filename": "capture-1768476254823.jpg",
-      "timestamp": 1768476254823,
-      "date": "2026-01-15T11:24:14.823Z",
-      "size": 6121
-    },
-    {
-      "id": "c9491ac5-e8b1-45ef-8bc7-a5fdbfb75659",
-      "name": "Screenshot_01-15-2026_13-21-19",
-      "filename": "capture-1768476080455.jpg",
-      "timestamp": 1768476080455,
-      "date": "2026-01-15T11:21:20.456Z",
       "size": 6121
     },
     {

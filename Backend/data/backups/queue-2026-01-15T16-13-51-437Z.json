@@ -1,0 +1,24 @@
+{
+  "items": [
+    {
+      "id": "689bf348-2ad2-46b5-a53f-c2e9f32b833e",
+      "type": "pen",
+      "penType": "pen1",
+      "name": "Pen 1",
+      "status": "processing",
+      "gcode": "G21\nG90\nF8000\nG1 Z-2.3\nG0 X0 Y0\nG1 Z0\nG1 X1 Y1\nG1 Z-2.3\nG0 X0 Y0\nM2",
+      "stats": {
+        "lines": 10
+      },
+      "timestamp": 1768493626029,
+      "createdAt": "2026-01-15T16:13:46.029Z",
+      "completedAt": null,
+      "error": null,
+      "processingStartTime": 1768493630890,
+      "currentLine": 0
+    }
+  ],
+  "lastUpdated": "2026-01-15T16:13:50.890Z",
+  "version": "1.0",
+  "itemCount": 1
+}

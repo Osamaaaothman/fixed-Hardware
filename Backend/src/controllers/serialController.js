@@ -467,7 +467,7 @@ function sendGcodeLinesSSE(
       lastSuccessfulLine = currentLine; // Track last successful command
       sendNextLine();
     }
-  });
+  };
 
   function sendNextLine() {
     if (isCancelled) {
