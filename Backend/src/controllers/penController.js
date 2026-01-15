@@ -10,21 +10,21 @@ const PEN_CONFIGS = {
     gcode: [
       // TODO: Add your Pen 1 track G-code here
       // Example: "G1 X10 Y10",
-      "G1 X1 Y1"
+      "G1 X1 Y1",
     ],
   },
   pen2: {
     name: "Pen 2",
     gcode: [
       // TODO: Add your Pen 2 track G-code here
-        "G1 X10"
+      "G1 X10",
     ],
   },
   erasing_pen: {
     name: "Erasing Pen",
     gcode: [
       // TODO: Add your Erasing Pen track G-code here
-      "G1 Y10"
+      "G1 Y10",
     ],
   },
 };
@@ -66,12 +66,10 @@ router.post("/execute/:penType", async (req, res) => {
     }
 
     if (PEN_CONFIGS[penType].gcode.length === 0) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          error: `Pen ${penType} has no G-code configured`,
-        });
+      return res.status(400).json({
+        success: false,
+        error: `Pen ${penType} has no G-code configured`,
+      });
     }
 
     const serialModule = await import("./serialController.js");
@@ -84,6 +82,12 @@ router.post("/execute/:penType", async (req, res) => {
       return res
         .status(400)
         .json({ success: false, error: "CNC is not connected" });
+    }
+
+    // Send command to box to enter pen mode
+    if (boxPort && boxPort.isOpen) {
+      console.log(`[PEN] Sending ${penType} command to box`);
+      boxPort.write(`${penType}\n`);
     }
 
     const gcode = generatePenGcode(penType);
@@ -167,12 +171,10 @@ router.post("/queue/:penType", async (req, res) => {
     }
 
     if (PEN_CONFIGS[penType].gcode.length === 0) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          error: `Pen ${penType} has no G-code configured`,
-        });
+      return res.status(400).json({
+        success: false,
+        error: `Pen ${penType} has no G-code configured`,
+      });
     }
 
     const gcode = generatePenGcode(penType);

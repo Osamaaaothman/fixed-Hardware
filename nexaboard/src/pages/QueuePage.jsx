@@ -186,6 +186,12 @@ const QueuePage = () => {
       fetchQueue();
     });
 
+    // Listen for box status updates
+    newSocket.on("box:status", (data) => {
+      console.log("[QUEUE] Box status updated:", data);
+      setBoxConnected(data.connected || false);
+    });
+
     return () => {
       clearTimeout(fetchTimeout);
       newSocket.close();
