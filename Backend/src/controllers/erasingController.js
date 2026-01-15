@@ -1,13 +1,14 @@
 import express from "express";
+import HardwareConfig from "../config/hardware.config.js";
 
 const router = express.Router();
 
-// CNC dimensions and settings
-const CNC_WIDTH = 95; // mm
-const CNC_HEIGHT = 130; // mm
-const PEN_UP = -2.3;
-const PEN_DOWN = 0;
-const FEED_RATE = 8000; // Fast movement for erasing
+// Use centralized configuration
+const {
+  DIMENSIONS: { WIDTH: CNC_WIDTH, HEIGHT: CNC_HEIGHT },
+  PEN: { UP: PEN_UP, DOWN: PEN_DOWN },
+  ERASING: { Y_STEP, FEED_RATE },
+} = HardwareConfig.CNC;
 
 /**
  * Generate G-code for erasing the entire board

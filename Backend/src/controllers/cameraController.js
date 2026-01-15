@@ -4,6 +4,7 @@ import fs from "fs";
 import { fileURLToPath } from "url";
 import fetch from "node-fetch";
 import { v4 as uuidv4 } from "uuid";
+import HardwareConfig from "../config/hardware.config.js";
 import {
   ESP32_STREAM_URL,
   ESP32_CAPTURE_URL,
@@ -13,6 +14,16 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const router = express.Router();
+
+// Circuit breaker state for camera
+let cameraCircuitBreakerState = {
+  failures: 0,
+  lastFailureTime: null,
+  isOpen: false,
+};
+
+const CIRCUIT_BREAKER_THRESHOLD = 5; // Open after 5 failures
+const CIRCUIT_BREAKER_TIMEOUT = 60000; // Try again after 1 minute
 
 // Paths
 const capturesDir = path.join(__dirname, "../../uploads/captures");
@@ -63,8 +74,109 @@ router.get("/stream", (req, res) => {
 });
 
 /**
+ * Helper: Check and update circuit breaker
+ */
+function checkCircuitBreaker() {
+  if (!cameraCircuitBreakerState.isOpen) {
+    return { open: false };
+  }
+
+  const now = Date.now();
+  const timeSinceFailure = now - cameraCircuitBreakerState.lastFailureTime;
+
+  if (timeSinceFailure >= CIRCUIT_BREAKER_TIMEOUT) {
+    // Reset circuit breaker
+    console.log("[CAMERA] Circuit breaker reset - attempting reconnection");
+    cameraCircuitBreakerState.isOpen = false;
+    cameraCircuitBreakerState.failures = 0;
+    return { open: false };
+  }
+
+  const remainingTime = Math.ceil(
+    (CIRCUIT_BREAKER_TIMEOUT - timeSinceFailure) / 1000
+  );
+  return {
+    open: true,
+    message: `Camera circuit breaker open. Too many failures. Retry in ${remainingTime}s`,
+  };
+}
+
+/**
+ * Helper: Record camera failure
+ */
+function recordCameraFailure() {
+  cameraCircuitBreakerState.failures++;
+  cameraCircuitBreakerState.lastFailureTime = Date.now();
+
+  if (cameraCircuitBreakerState.failures >= CIRCUIT_BREAKER_THRESHOLD) {
+    cameraCircuitBreakerState.isOpen = true;
+    console.error(
+      `[CAMERA] ⚠️ Circuit breaker OPEN after ${cameraCircuitBreakerState.failures} failures`
+    );
+  }
+}
+
+/**
+ * Helper: Record camera success
+ */
+function recordCameraSuccess() {
+  cameraCircuitBreakerState.failures = 0;
+  cameraCircuitBreakerState.isOpen = false;
+}
+
+/**
+ * Helper: Capture with retry logic
+ */
+async function captureWithRetry() {
+  const { RETRY_ATTEMPTS, RETRY_DELAY } = HardwareConfig.CAMERA.CAPTURE;
+
+  for (let attempt = 1; attempt <= RETRY_ATTEMPTS; attempt++) {
+    try {
+      console.log(
+        `[CAMERA] Capture attempt ${attempt}/${RETRY_ATTEMPTS} from ${ESP32_CAPTURE_URL}`
+      );
+
+      const response = await fetch(ESP32_CAPTURE_URL, {
+        timeout: HardwareConfig.CAMERA.CONNECTION.TIMEOUT,
+      });
+
+      if (!response.ok) {
+        throw new Error(`ESP32 camera returned status ${response.status}`);
+      }
+
+      const arrayBuffer = await response.arrayBuffer();
+      const buffer = Buffer.from(arrayBuffer);
+
+      // Validate image size
+      if (buffer.length > HardwareConfig.CAMERA.CAPTURE.MAX_SIZE) {
+        throw new Error(`Image too large: ${buffer.length} bytes`);
+      }
+
+      console.log(`[CAMERA] ✅ Capture successful (${buffer.length} bytes)`);
+      recordCameraSuccess();
+
+      return { success: true, buffer };
+    } catch (error) {
+      console.error(`[CAMERA] Attempt ${attempt} failed:`, error.message);
+
+      if (attempt < RETRY_ATTEMPTS) {
+        const delay = RETRY_DELAY * attempt; // Progressive delay
+        console.log(`[CAMERA] Retrying in ${delay}ms...`);
+        await new Promise((resolve) => setTimeout(resolve, delay));
+      } else {
+        recordCameraFailure();
+        return { success: false, error: error.message };
+      }
+    }
+  }
+
+  recordCameraFailure();
+  return { success: false, error: "All retry attempts failed" };
+}
+
+/**
  * POST /api/camera/capture
- * Capture image from ESP32 camera and save
+ * Capture image from ESP32 camera with retry logic and circuit breaker
  */
 router.post("/capture", async (req, res) => {
   try {
@@ -77,18 +189,28 @@ router.post("/capture", async (req, res) => {
       });
     }
 
-    // Fetch image from ESP32 camera
-    console.log(`[CAMERA] Attempting to capture from ${ESP32_CAPTURE_URL}`);
-    const response = await fetch(ESP32_CAPTURE_URL, {
-      timeout: 10000, // 10 second timeout
-    });
-
-    if (!response.ok) {
-      throw new Error(`ESP32 camera returned status ${response.status}`);
+    // Check circuit breaker
+    const circuitStatus = checkCircuitBreaker();
+    if (circuitStatus.open) {
+      return res.status(503).json({
+        success: false,
+        message: circuitStatus.message,
+        circuitBreakerOpen: true,
+      });
     }
 
-    const arrayBuffer = await response.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
+    // Attempt capture with retries
+    const captureResult = await captureWithRetry();
+
+    if (!captureResult.success) {
+      return res.status(500).json({
+        success: false,
+        message: `Failed to capture image: ${captureResult.error}`,
+        error: captureResult.error,
+      });
+    }
+
+    const buffer = captureResult.buffer;
 
     console.log(`[CAMERA] Captured ${buffer.length} bytes from camera`);
 

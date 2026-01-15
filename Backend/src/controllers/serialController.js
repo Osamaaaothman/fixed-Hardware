@@ -3,9 +3,16 @@ import { SerialPort } from "serialport";
 import { ReadlineParser } from "@serialport/parser-readline";
 import { exec } from "child_process";
 import { promisify } from "util";
+import { Mutex } from "async-mutex";
+import HardwareConfig from "../config/hardware.config.js";
+import listenerTracker from "../utils/listenerTracker.js";
 
 const router = express.Router();
 const execAsync = promisify(exec);
+
+// Mutex to prevent concurrent G-code operations (CRITICAL: prevents race conditions)
+const gcodeOperationMutex = new Mutex();
+const connectionMutex = new Mutex();
 
 let activePort = null;
 let parser = null;
@@ -21,16 +28,16 @@ let isDrawing = false;
 let lastSuccessfulLine = 0;
 
 /**
- * Disable HUPCL on serial port to prevent Arduino reset
- * This must be done BEFORE opening the port
+ * Platform-aware serial port configuration
+ * Removed stty command - not needed with proper SerialPort options
  */
-const disableHUPCL = async (portPath, baudRate = 115200) => {
+const configureSerialPort = async (portPath, baudRate = 115200) => {
   try {
-    await execAsync(`stty -F ${portPath} ${baudRate} -hupcl`);
-    console.log(`[SERIAL] HUPCL disabled on ${portPath}`);
+    // SerialPort options handle DTR/RTS without external commands
+    console.log(`[SERIAL] Configuring port ${portPath} (platform: ${HardwareConfig.SYSTEM.PLATFORM.OS})`);
     return true;
   } catch (error) {
-    console.warn(`[SERIAL] Warning: Could not disable HUPCL: ${error.message}`);
+    console.warn(`[SERIAL] Warning: Port configuration issue: ${error.message}`);
     return false;
   }
 };
@@ -60,8 +67,8 @@ router.use((req, res, next) => {
 router.post("/send", async (req, res) => {
   const {
     gcode,
-    port = "/dev/ttyUSB0",
-    baudRate = 115200,
+    port = HardwareConfig.CNC.SERIAL.DEFAULT_PORT,
+    baudRate = HardwareConfig.CNC.SERIAL.BAUD_RATE,
     usePersistent = true,
     isErasingMode = false,
   } = req.body;
@@ -71,20 +78,24 @@ router.post("/send", async (req, res) => {
     return res.status(400).json({ error: "No G-code provided" });
   }
 
+  // CRITICAL FIX: Use mutex to prevent race conditions
+  if (gcodeOperationMutex.isLocked()) {
+    console.log("[SERIAL/SEND] ⚠️ Rejecting request - G-code operation already in progress (mutex locked)");
+    return res.status(409).json({
+      error: "A drawing operation is already in progress. Please wait for it to complete.",
+      locked: true,
+    });
+  }
+
   console.log("[SERIAL/SEND] Received G-code transmission request");
   console.log("[SERIAL/SEND] Using persistent connection:", usePersistent);
   console.log("[SERIAL/SEND] Persistent port available:", !!persistentPort);
   console.log("[SERIAL/SEND] Persistent port open:", persistentPort?.isOpen);
   console.log("[SERIAL/SEND] Persistent connected:", persistentConnected);
 
-  // CRITICAL: Prevent multiple simultaneous draws
-  if (isDrawing) {
-    console.log("[SERIAL/SEND] Rejecting draw request - already drawing");
-    return res.status(409).json({
-      error:
-        "A drawing operation is already in progress. Please wait for it to complete.",
-    });
-  }
+  // Acquire mutex lock for entire operation
+  const release = await gcodeOperationMutex.acquire();
+  console.log("[SERIAL/SEND] 🔒 Mutex acquired - operation started");
 
   // Set headers for Server-Sent Events
   res.setHeader("Content-Type", "text/event-stream");
@@ -95,6 +106,18 @@ router.post("/send", async (req, res) => {
     res.write(`event: ${event}\n`);
     res.write(`data: ${JSON.stringify(data)}\n\n`);
   };
+
+  // Ensure mutex is released on cleanup
+  const cleanup = () => {
+    if (gcodeOperationMutex.isLocked()) {
+      release();
+      console.log("[SERIAL/SEND] 🔓 Mutex released");
+    }
+  };
+
+  // Register cleanup on response close
+  res.on("close", cleanup);
+  res.on("error", cleanup);
 
   // Import box controller to handle Box mode
   let boxModule = null;
@@ -361,7 +384,8 @@ function sendGcodeLinesSSE(
     }
   };
 
-  parser.on("data", (data) => {
+  // FIXED: Use listener tracker to prevent memory leaks
+  const dataHandler = (data) => {
     if (isCancelled) return; // Ignore responses after cancellation
 
     const response = data.trim();
@@ -595,9 +619,43 @@ function sendGcodeLinesSSE(
         // Try to continue anyway
         waitingForResponse = false;
         sendNextLine();
-      }, RESPONSE_TIMEOUT);
+      }, HardwareConfig.CNC.RESPONSE.TIMEOUT);
     }
-  }
+  };  // End of dataHandler
+
+  // Register listener with tracker for automatic cleanup
+  const listenerId = listenerTracker.register(
+    parser,
+    "data",
+    dataHandler,
+    {
+      id: `gcode-send-${Date.now()}`,
+      timeout: HardwareConfig.SYSTEM.LISTENERS.CLEANUP_TIMEOUT,
+      once: false,
+      emitterId: port === persistentPort ? "persistent-cnc" : "temp-cnc",
+    }
+  );
+
+  // Enhanced cleanup function to remove listener properly
+  const enhancedCleanup = () => {
+    // Remove tracked listener
+    listenerTracker.remove(parser, "data", listenerId, port === persistentPort ? "persistent-cnc" : "temp-cnc");
+    
+    // Clear any pending timeout
+    if (responseTimeout) {
+      clearTimeout(responseTimeout);
+      responseTimeout = null;
+    }
+    
+    // Release mutex if still locked
+    cleanup();
+  };
+
+  // Update cleanup registration
+  res.off("close", cleanup);
+  res.off("error", cleanup);
+  res.on("close", enhancedCleanup);
+  res.on("error", enhancedCleanup);
 
   // Start sending
   sendNextLine();
