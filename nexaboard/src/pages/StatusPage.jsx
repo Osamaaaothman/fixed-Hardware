@@ -1228,14 +1228,14 @@ const StatusPage = () => {
                     >
                       🧹 Erasing
                     </button>
-                    {/* Screenshot button hidden */}
-                    {/* <button
+                    {/* Screenshot button hidden 
+                    <button
                       onClick={handleScreenshot}
                       disabled={!boxStatus.connected}
                       className="btn btn-sm btn-outline btn-accent gap-1"
                     >
                       📷 Screenshot
-                    </button> */
+                    </button> */}
                   </div>
                 </div>
 
@@ -1293,8 +1293,8 @@ const StatusPage = () => {
                     >
                       ↩️ Exit Erasing
                     </button>
-                    {/* Exit Screenshot button hidden */}
-                    {/* <button
+                    {/* Exit Screenshot button hidden 
+                    <button
                       onClick={() => handleSendBoxCommand("exit_screenshot")}
                       disabled={
                         !boxStatus.connected ||
@@ -1303,7 +1303,7 @@ const StatusPage = () => {
                       className="btn btn-xs btn-ghost gap-1"
                     >
                       ↩️ Exit Screenshot
-                    </button> */
+                    </button> */}
                   </div>
                 </div>
 
