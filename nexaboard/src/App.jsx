@@ -9,14 +9,16 @@ import QueuePage from "./pages/QueuePage";
 import LiveCamPage from "./pages/LiveCamPage";
 import LockModal from "./components/LockModal";
 import InstallPWA from "./components/InstallPWA";
+import ConnectionStatusIndicator from "./components/ConnectionStatusIndicator";
 import { API_CONFIG } from "./config/api.config";
+import { SERIAL_CONFIG } from "./config/api.config";
 
 export default function App() {
   const [currentPage, setCurrentPage] = useState("dashboard");
   const [isLockModalOpen, setIsLockModalOpen] = useState(false);
   const [isSystemLocked, setIsSystemLocked] = useState(false);
 
-  // Check lock status on app load
+  // Check lock status and initialize serial connection on app load
   useEffect(() => {
     const checkLockStatus = async () => {
       try {
@@ -32,7 +34,47 @@ export default function App() {
       }
     };
 
+    const initializeSerialConnection = async () => {
+      try {
+        // Check if already connected
+        const statusResponse = await fetch(
+          `${API_CONFIG.ENDPOINTS.SERIAL}/status`
+        );
+        const statusData = await statusResponse.json();
+
+        if (!statusData.connected) {
+          // Attempt to connect to default port
+          console.log("[App] Initializing serial connection...");
+          const connectResponse = await fetch(
+            `${API_CONFIG.ENDPOINTS.SERIAL}/connect`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                port: SERIAL_CONFIG.DEFAULT_PORT,
+                baudRate: SERIAL_CONFIG.DEFAULT_BAUD_RATE,
+              }),
+            }
+          );
+
+          if (connectResponse.ok) {
+            console.log("[App] Serial connection initialized successfully");
+          } else {
+            console.log(
+              "[App] Serial connection failed - user may need to connect manually"
+            );
+          }
+        } else {
+          console.log("[App] Serial connection already established");
+        }
+      } catch (error) {
+        console.error("[App] Error initializing serial connection:", error);
+        // Non-critical error - user can connect manually from Status page
+      }
+    };
+
     checkLockStatus();
+    initializeSerialConnection();
   }, []);
 
   // Global keyboard listener for Ctrl+L
@@ -120,6 +162,9 @@ export default function App() {
 
       {/* PWA Install Prompt */}
       <InstallPWA />
+
+      {/* Connection Status Indicator */}
+      {!isSystemLocked && <ConnectionStatusIndicator />}
     </div>
   );
 }

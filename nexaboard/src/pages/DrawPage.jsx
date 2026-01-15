@@ -6,6 +6,7 @@ import GenerateButton from "../components/GenerateButton";
 import AddToQueueButton from "../components/AddToQueueButton";
 import DrawNowButton from "../components/DrawNowButton";
 import { API_CONFIG } from "../config/api.config.js";
+import { toast } from "sonner";
 
 const DrawPage = () => {
   const canvasRef = useRef(null);
@@ -202,23 +203,31 @@ const DrawPage = () => {
 
       // Close modal and show success
       setIsModalOpen(false);
+      toast.success("✅ Added to queue successfully!");
     } catch (err) {
       console.error("[DrawPage] Error adding to queue:", err);
       setError("Failed to add to queue: " + err.message);
+      toast.error(err.message || "Failed to add to queue");
     }
   };
 
   const handleDrawNow = async () => {
-    if (!gcode) return;
+    if (!gcode) {
+      toast.error("No G-code to send");
+      return;
+    }
 
     // Prevent multiple simultaneous draws
     if (isGenerating) {
       console.log("[DrawPage] Already drawing, ignoring duplicate click");
+      toast.warning("Drawing in progress, please wait...");
       return;
     }
 
     setIsGenerating(true);
     setError("");
+
+    const toastId = toast.loading("🖊️ Sending to CNC...");
 
     try {
       const response = await fetch(`${API_CONFIG.ENDPOINTS.SERIAL}/send`, {
@@ -232,14 +241,19 @@ const DrawPage = () => {
       });
 
       if (!response.ok) {
-        throw new Error("Failed to send G-code");
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || "Failed to send G-code");
       }
 
       console.log("[DrawPage] Drawing started...");
+      toast.success("✅ Drawing started!", { id: toastId });
       setIsModalOpen(false);
     } catch (err) {
       console.error("[DrawPage] Error sending G-code:", err);
       setError("Failed to start drawing: " + err.message);
+      toast.error(err.message || "Failed to send G-code to CNC", {
+        id: toastId,
+      });
     } finally {
       // Reset the flag after a delay to prevent rapid clicks
       setTimeout(() => setIsGenerating(false), 3000);
@@ -249,10 +263,11 @@ const DrawPage = () => {
   const handleCopyGcode = async () => {
     try {
       await navigator.clipboard.writeText(gcode);
-      // You can add a toast notification here if you want
+      toast.success("✅ G-code copied to clipboard!");
       console.log("[DrawPage] G-code copied to clipboard");
     } catch (err) {
       console.error("[DrawPage] Error copying G-code:", err);
+      toast.error("Failed to copy G-code");
     }
   };
 
@@ -415,8 +430,33 @@ const DrawPage = () => {
 
             {/* Modal Footer with Action Buttons */}
             <div className="px-6 py-4 bg-base-200 border-t border-base-300">
-              <div className="flex gap-3 justify-end">
-                <AddToQueueButton onClick={handleAddToQueue} />
+              <div className="flex flex-col gap-3">
+                {/* Help text explaining the options */}
+                <div className="text-xs text-base-content/60 px-1">
+                  <span className="font-semibold">Queue:</span> Save for later
+                  execution (use hardware button or queue page)
+                  <span className="mx-2">•</span>
+                  <span className="font-semibold">Draw Now:</span> Execute
+                  immediately on CNC
+                </div>
+
+                <div className="flex gap-3 justify-end">
+                  <div
+                    className="tooltip tooltip-top"
+                    data-tip="Add to queue for later execution"
+                  >
+                    <AddToQueueButton onClick={handleAddToQueue} />
+                  </div>
+                  <div
+                    className="tooltip tooltip-top"
+                    data-tip="Send to CNC and draw immediately"
+                  >
+                    <DrawNowButton
+                      onClick={handleDrawNow}
+                      disabled={!gcode || isGenerating}
+                    />
+                  </div>
+                </div>
               </div>
             </div>
           </div>
