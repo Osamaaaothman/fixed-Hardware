@@ -963,6 +963,75 @@ router.post("/command", async (req, res) => {
       });
     }
 
+    // ⚠️ CRITICAL: M3 commands MUST ONLY go to BOX, NEVER to CNC
+    const isM3S0 = /^M3\s+S0\s*$/i.test(command.trim());
+    const isM3S180 = /^M3\s+S180\s*$/i.test(command.trim());
+    const isM3Command = isM3S0 || isM3S180;
+
+    if (isM3Command) {
+      console.log(
+        `[SERIAL/COMMAND] ⚠️ BLOCKING M3 command from going to CNC: ${command}`,
+      );
+      console.log(`[SERIAL/COMMAND] 🔀 Redirecting to BOX instead...`);
+
+      if (!boxPort || !boxPort.isOpen) {
+        const errorMsg = `❌ BOX NOT CONNECTED: Cannot send M3 command (${command.trim()}). M3 commands control the servo and MUST go to BOX only. NEVER send M3 to CNC - it resets the Arduino!`;
+        console.error(`[SERIAL/COMMAND] ${errorMsg}`);
+
+        return res.status(400).json({
+          success: false,
+          error: errorMsg,
+          redirectedToBox: false,
+          requirement: "BOX must be connected to use M3 servo commands",
+        });
+      }
+
+      // Send to BOX instead of CNC
+      const boxCommand = isM3S0 ? "M3 S0" : "M3 S180";
+      console.log(
+        `[SERIAL/COMMAND] ✅ Sending ${boxCommand} to BOX (Servo Control)`,
+      );
+
+      return new Promise((resolve) => {
+        boxPort.write(`${boxCommand}\n`, (err) => {
+          if (err) {
+            console.error(
+              `[SERIAL/COMMAND] ❌ Error sending ${boxCommand} to BOX:`,
+              err,
+            );
+            resolve(
+              res.status(500).json({
+                success: false,
+                error: `Failed to send ${boxCommand} to BOX: ${err.message}`,
+                redirectedToBox: true,
+              }),
+            );
+          } else {
+            console.log(
+              `[SERIAL/COMMAND] ✅ Successfully sent ${boxCommand} to BOX`,
+            );
+
+            emitSerialEvent("response", {
+              command: boxCommand,
+              response: "M3 command sent to BOX (servo control)",
+              redirectedToBox: true,
+            });
+
+            resolve(
+              res.json({
+                success: true,
+                message: `M3 command redirected to BOX (not CNC)`,
+                command: boxCommand,
+                response: "Sent to BOX servo controller",
+                redirectedToBox: true,
+                warning: "M3 commands NEVER go to CNC (would reset Arduino)",
+              }),
+            );
+          }
+        });
+      });
+    }
+
     // Try to use persistent connection first
     if (
       usePersistent &&
