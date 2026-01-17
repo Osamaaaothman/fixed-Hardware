@@ -5,7 +5,7 @@
  */
 
 // ESP32 Camera Base URL - CHANGE THIS WHEN YOUR ESP CAM IP CHANGES
-const ESP32_CAM_BASE_URL = "http://192.168.1.12";
+const ESP32_CAM_BASE_URL = "http://192.168.1.24";
 
 // ESP32 Camera endpoints
 export const CAMERA_CONFIG = {

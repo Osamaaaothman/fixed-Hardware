@@ -2,6 +2,7 @@ import { nexaboard } from "../../Data.js";
 import { saveQueue } from "./queuePersistence.js";
 import { SerialPort } from "serialport";
 import { ReadlineParser } from "@serialport/parser-readline";
+import servoController from "../controllers/servoController.js";
 
 let isProcessing = false;
 let currentProcessingItem = null;
@@ -36,6 +37,40 @@ function sendBoxCommand(boxPort, command) {
  */
 function sendLine(line, parser, serialPort) {
   return new Promise((resolve, reject) => {
+    // INTERCEPT M3 COMMANDS FOR SERVO CONTROL
+    const m3Match = line
+      .trim()
+      .toUpperCase()
+      .match(/^M3\s+S(\d+)/);
+    if (m3Match) {
+      const angle = parseInt(m3Match[1]);
+      console.log(
+        `[QUEUE] Intercepted M3 command for servo: ${line} -> ${angle}°`,
+      );
+
+      try {
+        // Send to Raspberry Pi servo instead of CNC
+        const servoResult = servoController.setAngle("pen_servo", angle);
+
+        if (servoResult.success) {
+          console.log(`[QUEUE] ✅ Servo set to ${angle}°`);
+        } else {
+          console.warn(
+            `[QUEUE] ⚠️ Servo command failed: ${servoResult.message}`,
+          );
+        }
+
+        // Wait 100ms for servo movement, then resolve
+        setTimeout(() => resolve(), 100);
+      } catch (error) {
+        console.error(`[QUEUE] Error controlling servo:`, error);
+        // Continue execution even if servo fails
+        setTimeout(() => resolve(), 100);
+      }
+      return; // Don't send M3 to CNC
+    }
+
+    // Regular G-code - send to CNC
     const timeout = setTimeout(() => {
       reject(new Error("Timeout waiting for Arduino response"));
     }, 5000);
@@ -75,7 +110,7 @@ async function processQueueItem(
   baudRate = 115200,
   persistentPort = null,
   persistentParser = null,
-  boxPort = null
+  boxPort = null,
 ) {
   let serialPort = null;
   let parser = null;
@@ -148,7 +183,7 @@ async function processQueueItem(
       } catch (boxError) {
         console.error(
           "[QUEUE] Warning: Failed to set Box to writing mode:",
-          boxError
+          boxError,
         );
         // Continue anyway - Box mode is optional
       }
@@ -224,7 +259,7 @@ async function processQueueItem(
       try {
         await sendBoxCommand(boxPort, "exit_writing");
         console.log(
-          "[QUEUE] Box exited writing mode after error, returned to menu"
+          "[QUEUE] Box exited writing mode after error, returned to menu",
         );
       } catch (boxError) {
         console.error("[QUEUE] Failed to exit Box writing mode:", boxError);
@@ -269,7 +304,7 @@ export async function startQueueProcessing(
   baudRate = 115200,
   persistentPort = null,
   persistentParser = null,
-  boxPort = null
+  boxPort = null,
 ) {
   if (isProcessing) {
     return { success: false, message: "Queue is already being processed" };
@@ -306,7 +341,7 @@ export async function startQueueProcessing(
       } catch (boxError) {
         console.error(
           "[QUEUE] Warning: Failed to send queue_empty to Box:",
-          boxError
+          boxError,
         );
       }
     }
@@ -352,7 +387,7 @@ export async function startQueueProcessing(
         baudRate,
         persistentPort,
         persistentParser,
-        boxPort
+        boxPort,
       );
       results.items.push(result);
 
@@ -368,7 +403,7 @@ export async function startQueueProcessing(
           await saveQueue(nexaboard.queue.getAll());
 
           console.log(
-            `[QUEUE] Removed completed item ${nextItem.id} from queue`
+            `[QUEUE] Removed completed item ${nextItem.id} from queue`,
           );
 
           // Emit queue updated event
@@ -392,7 +427,7 @@ export async function startQueueProcessing(
     isProcessing = false;
 
     console.log(
-      `[QUEUE] Processing finished: ${results.completed} completed, ${results.failed} failed`
+      `[QUEUE] Processing finished: ${results.completed} completed, ${results.failed} failed`,
     );
 
     // Return Box to menu after all queue processing is complete
@@ -429,7 +464,7 @@ export async function startQueueProcessing(
       } catch (boxError) {
         console.error(
           "[QUEUE] Warning: Failed to return Box to menu:",
-          boxError
+          boxError,
         );
       }
     }

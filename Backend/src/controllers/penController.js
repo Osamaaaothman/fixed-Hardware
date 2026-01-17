@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { nexaboard } from "../../Data.js";
+import servoController from "./servoController.js";
 
 const router = Router();
 
@@ -46,7 +47,7 @@ function generatePenGcode(penType) {
     `F${CNC_CONFIG.FEED_RATE}`,
     `G1 Z${CNC_CONFIG.PEN_UP}`,
     "G0 X0 Y0",
-    `G1 Z${CNC_CONFIG.PEN_DOWN}`
+    `G1 Z${CNC_CONFIG.PEN_DOWN}`,
   );
   gcode.push(...config.gcode);
   gcode.push(`G1 Z${CNC_CONFIG.PEN_UP}`, "G0 X0 Y0", "M2");
@@ -118,6 +119,48 @@ router.post("/execute/:penType", async (req, res) => {
 
       if (!waitingForResponse) {
         const line = lines[currentLine];
+
+        // INTERCEPT M3 COMMANDS FOR SERVO CONTROL
+        const m3Match = line
+          .trim()
+          .toUpperCase()
+          .match(/^M3\s+S(\d+)/);
+        if (m3Match) {
+          const angle = parseInt(m3Match[1]);
+          console.log(
+            `[PEN] Intercepted M3 command for servo: ${line} -> ${angle}°`,
+          );
+
+          try {
+            // Send to Raspberry Pi servo instead of CNC
+            const servoResult = servoController.setAngle("pen_servo", angle);
+
+            if (servoResult.success) {
+              console.log(`[PEN] ✅ Servo set to ${angle}°`);
+            } else {
+              console.warn(
+                `[PEN] ⚠️ Servo command failed: ${servoResult.message}`,
+              );
+            }
+          } catch (error) {
+            console.error(`[PEN] Error controlling servo:`, error);
+          }
+
+          // Move to next line after servo delay
+          if (io) {
+            io.emit("pen:progress", {
+              penType,
+              currentLine: currentLine + 1,
+              totalLines: lines.length,
+              progress: ((currentLine + 1) / lines.length) * 100,
+            });
+          }
+          currentLine++;
+          setTimeout(() => sendNextLine(), 100); // 100ms delay for servo movement
+          return;
+        }
+
+        // Regular G-code - send to CNC
         waitingForResponse = true;
         serialPort.write(line + "\n", (err) => {
           if (err) console.error(`[PEN] Error writing to CNC:`, err);

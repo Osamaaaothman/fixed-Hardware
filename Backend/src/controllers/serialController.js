@@ -542,73 +542,6 @@ function sendGcodeLinesSSE(
       const line = lines[currentLine];
       console.log(`Sending [${currentLine + 1}/${lines.length}]: ${line}`);
 
-      // Check if this is an M3 S0 or M3 S180 command that should go to Box
-      const isM3S0 = /^M3\s+S0\s*$/i.test(line.trim());
-      const isM3S180 = /^M3\s+S180\s*$/i.test(line.trim());
-      const isM3Command = isM3S0 || isM3S180;
-
-      if (isM3Command) {
-        // M3 commands MUST ONLY go to BOX, never to CNC
-        console.log(`[SERIAL] ⚡ M3 command detected: ${line.trim()}`);
-        console.log(
-          `[SERIAL] BOX Status - Port: ${boxPort ? "exists" : "null"}, Open: ${boxPort?.isOpen ? "YES" : "NO"}`,
-        );
-
-        if (!boxPort || !boxPort.isOpen) {
-          // BOX is not connected - CRITICAL ERROR
-          const errorMsg = `❌ BOX NOT CONNECTED: Cannot send M3 command (${line.trim()}). M3 commands control the servo and MUST go to BOX only!`;
-          console.error(`[SERIAL] ${errorMsg}`);
-
-          sendEvent("error", {
-            message: errorMsg,
-            command: line.trim(),
-            requirement: "BOX must be connected to use M3 servo commands",
-            timestamp: Date.now() - startTime,
-          });
-
-          // Skip this line and continue with next one
-          currentLine++;
-          sendNextLine();
-          return;
-        }
-
-        // BOX is connected - send command to BOX ONLY
-        const boxCommand = isM3S0 ? "M3 S0" : "M3 S180";
-        console.log(
-          `[SERIAL] ✅ Routing ${line.trim()} → BOX Arduino (Servo Control)`,
-        );
-
-        boxPort.write(`${boxCommand}\n`, (err) => {
-          if (err) {
-            console.error(
-              `[SERIAL] ❌ Error sending ${boxCommand} to BOX:`,
-              err,
-            );
-            sendEvent("error", {
-              message: `Failed to send ${boxCommand} to BOX: ${err.message}`,
-              timestamp: Date.now() - startTime,
-            });
-          } else {
-            console.log(
-              `[SERIAL] ✅ Successfully sent ${boxCommand} to BOX Arduino`,
-            );
-          }
-        });
-
-        // Send progress update
-        sendEvent("progress", {
-          current: currentLine + 1,
-          total: lines.length,
-          line: `${line} (→ BOX Servo)`,
-          timestamp: Date.now() - startTime,
-        });
-
-        // Move to next line immediately (no need to wait for Box response)
-        currentLine++;
-        sendNextLine();
-        return;
-      }
-
       // Track position from G-code commands
       const xMatch = line.match(/X([-\d.]+)/);
       const yMatch = line.match(/Y([-\d.]+)/);
@@ -620,14 +553,19 @@ function sendGcodeLinesSSE(
 
       // INTERCEPT M3 COMMANDS FOR SERVO CONTROL
       // Check if command is M3 Sxxx (servo control)
-      const m3Match = line.trim().toUpperCase().match(/^M3\s+S(\d+)/);
+      const m3Match = line
+        .trim()
+        .toUpperCase()
+        .match(/^M3\s+S(\d+)/);
       if (m3Match) {
         const angle = parseInt(m3Match[1]);
-        console.log(`[SERIAL] Intercepted M3 command for servo: ${line} -> ${angle}°`);
-        
+        console.log(
+          `[SERIAL] Intercepted M3 command for servo: ${line} -> ${angle}°`,
+        );
+
         // Send to servo instead of CNC/Box
-        const servoResult = servoController.setAngle('pen_servo', angle);
-        
+        const servoResult = servoController.setAngle("pen_servo", angle);
+
         // Send event to frontend
         sendEvent("log", {
           timestamp: Date.now() - startTime,
@@ -988,8 +926,11 @@ router.post("/command", async (req, res) => {
     }
 
     // ⚠️ CRITICAL: M3 commands control Raspberry Pi servo, NEVER go to CNC/BOX
-    const m3Match = command.trim().toUpperCase().match(/^M3\s+S(\d+)/);
-    
+    const m3Match = command
+      .trim()
+      .toUpperCase()
+      .match(/^M3\s+S(\d+)/);
+
     if (m3Match) {
       const angle = parseInt(m3Match[1]);
       console.log(
@@ -999,11 +940,11 @@ router.post("/command", async (req, res) => {
 
       try {
         // Send to Raspberry Pi servo
-        const servoResult = servoController.setAngle('pen_servo', angle);
-        
+        const servoResult = servoController.setAngle("pen_servo", angle);
+
         if (servoResult.success) {
           console.log(`[SERIAL/COMMAND] ✅ Servo set to ${angle}°`);
-          
+
           emitSerialEvent("response", {
             command: command,
             response: `Servo set to ${angle}°`,
@@ -1019,7 +960,7 @@ router.post("/command", async (req, res) => {
             info: "M3 commands control Raspberry Pi GPIO servo (never sent to CNC/BOX)",
           });
         } else {
-          throw new Error(servoResult.message || 'Servo control failed');
+          throw new Error(servoResult.message || "Servo control failed");
         }
       } catch (error) {
         console.error(`[SERIAL/COMMAND] ❌ Error controlling servo:`, error);

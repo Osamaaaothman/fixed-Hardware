@@ -3,6 +3,7 @@ import { SerialPort } from "serialport";
 import { ReadlineParser } from "@serialport/parser-readline";
 import { exec } from "child_process";
 import { promisify } from "util";
+import servoController from "./servoController.js";
 
 const router = express.Router();
 const execAsync = promisify(exec);
@@ -176,6 +177,51 @@ const executePenGcode = async (penType, io) => {
 
       if (!waitingForResponse) {
         const line = lines[currentLine];
+
+        // INTERCEPT M3 COMMANDS FOR SERVO CONTROL
+        const m3Match = line
+          .trim()
+          .toUpperCase()
+          .match(/^M3\s+S(\d+)/);
+        if (m3Match) {
+          const angle = parseInt(m3Match[1]);
+          console.log(
+            `[BOX] Intercepted M3 command for servo: ${line} -> ${angle}°`,
+          );
+
+          try {
+            // Send to Raspberry Pi servo instead of CNC
+            const servoResult = servoController.setAngle("pen_servo", angle);
+
+            if (servoResult.success) {
+              console.log(`[BOX] ✅ Servo set to ${angle}°`);
+            } else {
+              console.warn(
+                `[BOX] ⚠️ Servo command failed: ${servoResult.message}`,
+              );
+            }
+          } catch (error) {
+            console.error(`[BOX] Error controlling servo:`, error);
+          }
+
+          // Move to next line after servo delay
+          console.log(
+            `[BOX] ${penType} ${currentLine + 1}/${lines.length} - ${line} (Servo)`,
+          );
+          if (io) {
+            io.emit("box:hardware-pen-progress", {
+              penType,
+              currentLine: currentLine + 1,
+              totalLines: lines.length,
+              progress: ((currentLine + 1) / lines.length) * 100,
+            });
+          }
+          currentLine++;
+          setTimeout(() => sendNextLine(), 100); // 100ms delay for servo movement
+          return;
+        }
+
+        // Regular G-code - send to CNC
         waitingForResponse = true;
         serialPort.write(line + "\n", (err) => {
           if (err) console.error(`[BOX] Error writing to CNC:`, err);
@@ -595,6 +641,53 @@ const parseBoxMessage = (message, io) => {
 
                 if (!waitingForResponse) {
                   const line = lines[currentLine];
+
+                  // INTERCEPT M3 COMMANDS FOR SERVO CONTROL
+                  const m3Match = line
+                    .trim()
+                    .toUpperCase()
+                    .match(/^M3\s+S(\d+)/);
+                  if (m3Match) {
+                    const angle = parseInt(m3Match[1]);
+                    console.log(
+                      `[BOX] Erasing - Intercepted M3 command for servo: ${line} -> ${angle}°`,
+                    );
+
+                    try {
+                      // Send to Raspberry Pi servo instead of CNC
+                      const servoResult = servoController.setAngle(
+                        "pen_servo",
+                        angle,
+                      );
+
+                      if (servoResult.success) {
+                        console.log(
+                          `[BOX] Erasing - ✅ Servo set to ${angle}°`,
+                        );
+                      } else {
+                        console.warn(
+                          `[BOX] Erasing - ⚠️ Servo command failed: ${servoResult.message}`,
+                        );
+                      }
+                    } catch (error) {
+                      console.error(
+                        `[BOX] Erasing - Error controlling servo:`,
+                        error,
+                      );
+                    }
+
+                    // Move to next line after servo delay
+                    console.log(
+                      `[BOX] Erasing: ${currentLine + 1}/${
+                        lines.length
+                      } - ${line} (Servo)`,
+                    );
+                    currentLine++;
+                    setTimeout(() => sendNextLine(), 100); // 100ms delay for servo movement
+                    return;
+                  }
+
+                  // Regular G-code - send to CNC
                   waitingForResponse = true;
 
                   serialPort.write(line + "\n", (err) => {
@@ -1153,14 +1246,14 @@ router.post("/command", (req, res) => {
     "locked",
   ];
 
-  // Check for specific M3 commands (only M3 S0 and M3 S180)
-  const isM3S0 = /^M3\s+S0$/i.test(command);
-  const isM3S180 = /^M3\s+S180$/i.test(command);
+  // M3 commands are now handled by Raspberry Pi GPIO servo only
+  // BOX Arduino M3 handler disabled to avoid dual servo control
 
-  if (!validCommands.includes(command) && !isM3S0 && !isM3S180) {
+  if (!validCommands.includes(command)) {
     return res.status(400).json({
-      error: `Invalid command. Valid commands: ${validCommands.join(", ")}, M3 S0, M3 S180`,
+      error: `Invalid command. Valid commands: ${validCommands.join(", ")}`,
       validCommands,
+      note: "M3 servo commands are now handled by Raspberry Pi GPIO, not BOX",
     });
   }
 
@@ -1172,14 +1265,6 @@ router.post("/command", (req, res) => {
   }
 
   try {
-    // Enhanced logging for M3 commands (servo control)
-    if (isM3S0 || isM3S180) {
-      console.log(`[BOX] 🔧 M3 Servo Command: ${command}`);
-      console.log(
-        `[BOX]    └─> Action: ${isM3S0 ? "Pen UP (0°)" : "Pen DOWN (180°)"}`,
-      );
-    }
-
     // Send command to Box
     boxPort.write(`${command}\n`, (err) => {
       if (err) {
