@@ -7,6 +7,7 @@ import {
   FileCode,
   Camera,
   Pencil,
+  RotateCw,
   ChevronLeft,
   ChevronRight,
   Sun,
@@ -43,6 +44,7 @@ const Sidebar = ({ onNavigate, currentPage }) => {
     { id: "draw", label: "Draw", icon: <Pencil size={20} /> },
     { id: "gcodeViewer", label: "G-code", icon: <FileCode size={20} /> },
     { id: "liveCam", label: "Camera", icon: <Camera size={20} /> },
+    { id: "servoTest", label: "Servo Test", icon: <RotateCw size={20} /> },
   ];
 
   return (

@@ -1,0 +1,39 @@
+{
+  "items": [
+    {
+      "id": "947c3006-600c-4d9c-8904-e18f8f2838e7",
+      "type": "pen",
+      "penType": "pen2",
+      "name": "Pen 2",
+      "status": "processing",
+      "gcode": "G21\nG90\nF8000\nG1 Z-2.3\nG0 X0 Y0\nG1 Z0\nG1 X10\nG1 Z-2.3\nG0 X0 Y0\nM2",
+      "stats": {
+        "lines": 10
+      },
+      "timestamp": 1768495266865,
+      "createdAt": "2026-01-15T16:41:06.865Z",
+      "completedAt": null,
+      "error": null,
+      "processingStartTime": 1768495272493,
+      "currentLine": 0
+    },
+    {
+      "id": "6077b8fe-a8ec-4f58-8843-0912a2e63e80",
+      "type": "pen",
+      "penType": "erasing_pen",
+      "name": "Erasing Pen",
+      "status": "pending",
+      "gcode": "G21\nG90\nF8000\nG1 Z-2.3\nG0 X0 Y0\nG1 Z0\nG1 Y10\nG1 Z-2.3\nG0 X0 Y0\nM2",
+      "stats": {
+        "lines": 10
+      },
+      "timestamp": 1768495267860,
+      "createdAt": "2026-01-15T16:41:07.860Z",
+      "completedAt": null,
+      "error": null
+    }
+  ],
+  "lastUpdated": "2026-01-15T16:41:12.493Z",
+  "version": "1.0",
+  "itemCount": 2
+}

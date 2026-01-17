@@ -6,6 +6,7 @@ import { promisify } from "util";
 import { Mutex } from "async-mutex";
 import HardwareConfig from "../config/hardware.config.js";
 import listenerTracker from "../utils/listenerTracker.js";
+import servoController from "./servoController.js";
 
 const router = express.Router();
 const execAsync = promisify(exec);
@@ -617,6 +618,29 @@ function sendGcodeLinesSSE(
       if (yMatch) lastKnownPosition.y = parseFloat(yMatch[1]);
       if (zMatch) lastKnownPosition.z = parseFloat(zMatch[1]);
 
+      // INTERCEPT M3 COMMANDS FOR SERVO CONTROL
+      // Check if command is M3 Sxxx (servo control)
+      const m3Match = line.trim().toUpperCase().match(/^M3\s+S(\d+)/);
+      if (m3Match) {
+        const angle = parseInt(m3Match[1]);
+        console.log(`[SERIAL] Intercepted M3 command for servo: ${line} -> ${angle}°`);
+        
+        // Send to servo instead of CNC/Box
+        const servoResult = servoController.setAngle('pen_servo', angle);
+        
+        // Send event to frontend
+        sendEvent("log", {
+          timestamp: Date.now() - startTime,
+          message: `Servo: ${angle}°`,
+          line: currentLine,
+        });
+
+        // Move to next line immediately (no need to wait for servo)
+        currentLine++;
+        setTimeout(() => sendNextLine(), 100); // Small delay for servo movement
+        return;
+      }
+
       // Mark that we've started transmission (for reset detection)
       if (!transmissionStarted) {
         transmissionStarted = true;
@@ -963,73 +987,48 @@ router.post("/command", async (req, res) => {
       });
     }
 
-    // ⚠️ CRITICAL: M3 commands MUST ONLY go to BOX, NEVER to CNC
-    const isM3S0 = /^M3\s+S0\s*$/i.test(command.trim());
-    const isM3S180 = /^M3\s+S180\s*$/i.test(command.trim());
-    const isM3Command = isM3S0 || isM3S180;
-
-    if (isM3Command) {
+    // ⚠️ CRITICAL: M3 commands control Raspberry Pi servo, NEVER go to CNC/BOX
+    const m3Match = command.trim().toUpperCase().match(/^M3\s+S(\d+)/);
+    
+    if (m3Match) {
+      const angle = parseInt(m3Match[1]);
       console.log(
-        `[SERIAL/COMMAND] ⚠️ BLOCKING M3 command from going to CNC: ${command}`,
+        `[SERIAL/COMMAND] ⚠️ INTERCEPTING M3 command for Raspberry Pi servo: ${command}`,
       );
-      console.log(`[SERIAL/COMMAND] 🔀 Redirecting to BOX instead...`);
+      console.log(`[SERIAL/COMMAND] 🎯 Setting servo to ${angle}°`);
 
-      if (!boxPort || !boxPort.isOpen) {
-        const errorMsg = `❌ BOX NOT CONNECTED: Cannot send M3 command (${command.trim()}). M3 commands control the servo and MUST go to BOX only. NEVER send M3 to CNC - it resets the Arduino!`;
-        console.error(`[SERIAL/COMMAND] ${errorMsg}`);
+      try {
+        // Send to Raspberry Pi servo
+        const servoResult = servoController.setAngle('pen_servo', angle);
+        
+        if (servoResult.success) {
+          console.log(`[SERIAL/COMMAND] ✅ Servo set to ${angle}°`);
+          
+          emitSerialEvent("response", {
+            command: command,
+            response: `Servo set to ${angle}°`,
+            servoControl: true,
+          });
 
-        return res.status(400).json({
+          return res.json({
+            success: true,
+            message: `Servo set to ${angle}°`,
+            command: command,
+            angle: angle,
+            servoControl: true,
+            info: "M3 commands control Raspberry Pi GPIO servo (never sent to CNC/BOX)",
+          });
+        } else {
+          throw new Error(servoResult.message || 'Servo control failed');
+        }
+      } catch (error) {
+        console.error(`[SERIAL/COMMAND] ❌ Error controlling servo:`, error);
+        return res.status(500).json({
           success: false,
-          error: errorMsg,
-          redirectedToBox: false,
-          requirement: "BOX must be connected to use M3 servo commands",
+          error: `Failed to control servo: ${error.message}`,
+          servoControl: true,
         });
       }
-
-      // Send to BOX instead of CNC
-      const boxCommand = isM3S0 ? "M3 S0" : "M3 S180";
-      console.log(
-        `[SERIAL/COMMAND] ✅ Sending ${boxCommand} to BOX (Servo Control)`,
-      );
-
-      return new Promise((resolve) => {
-        boxPort.write(`${boxCommand}\n`, (err) => {
-          if (err) {
-            console.error(
-              `[SERIAL/COMMAND] ❌ Error sending ${boxCommand} to BOX:`,
-              err,
-            );
-            resolve(
-              res.status(500).json({
-                success: false,
-                error: `Failed to send ${boxCommand} to BOX: ${err.message}`,
-                redirectedToBox: true,
-              }),
-            );
-          } else {
-            console.log(
-              `[SERIAL/COMMAND] ✅ Successfully sent ${boxCommand} to BOX`,
-            );
-
-            emitSerialEvent("response", {
-              command: boxCommand,
-              response: "M3 command sent to BOX (servo control)",
-              redirectedToBox: true,
-            });
-
-            resolve(
-              res.json({
-                success: true,
-                message: `M3 command redirected to BOX (not CNC)`,
-                command: boxCommand,
-                response: "Sent to BOX servo controller",
-                redirectedToBox: true,
-                warning: "M3 commands NEVER go to CNC (would reset Arduino)",
-              }),
-            );
-          }
-        });
-      });
     }
 
     // Try to use persistent connection first

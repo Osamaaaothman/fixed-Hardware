@@ -7,6 +7,7 @@ import DrawPage from "./pages/DrawPage";
 import GcodeViewerPage from "./pages/GcodeViewerPage";
 import QueuePage from "./pages/QueuePage";
 import LiveCamPage from "./pages/LiveCamPage";
+import ServoTestPage from "./pages/ServoTestPage";
 import LockModal from "./components/LockModal";
 import InstallPWA from "./components/InstallPWA";
 import ConnectionStatusIndicator from "./components/ConnectionStatusIndicator";
@@ -151,6 +152,7 @@ export default function App() {
         {currentPage === "gcodeViewer" && <GcodeViewerPage />}
         {currentPage === "queue" && <QueuePage />}
         {currentPage === "liveCam" && <LiveCamPage />}
+        {currentPage === "servoTest" && <ServoTestPage />}
       </div>
 
       {/* Lock Modal */}

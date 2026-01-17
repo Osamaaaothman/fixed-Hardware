@@ -1,0 +1,22 @@
+{
+  "items": [
+    {
+      "id": "6077b8fe-a8ec-4f58-8843-0912a2e63e80",
+      "type": "pen",
+      "penType": "erasing_pen",
+      "name": "Erasing Pen",
+      "status": "pending",
+      "gcode": "G21\nG90\nF8000\nG1 Z-2.3\nG0 X0 Y0\nG1 Z0\nG1 Y10\nG1 Z-2.3\nG0 X0 Y0\nM2",
+      "stats": {
+        "lines": 10
+      },
+      "timestamp": 1768495267860,
+      "createdAt": "2026-01-15T16:41:07.860Z",
+      "completedAt": null,
+      "error": null
+    }
+  ],
+  "lastUpdated": "2026-01-15T16:41:14.619Z",
+  "version": "1.0",
+  "itemCount": 1
+}
