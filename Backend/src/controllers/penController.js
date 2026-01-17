@@ -12,6 +12,8 @@ const PEN_CONFIGS = {
       // TODO: Add your Pen 1 track G-code here
       // Example: "G1 X10 Y10",
       "G1 X1 Y1",
+      "M3 S0",
+      "M3 S180"
     ],
   },
   pen2: {
@@ -19,6 +21,10 @@ const PEN_CONFIGS = {
     gcode: [
       // TODO: Add your Pen 2 track G-code here
       "G1 X10",
+      "M3 S0",
+      "G1 X14",
+
+      "M3 S180"
     ],
   },
   erasing_pen: {
@@ -26,6 +32,8 @@ const PEN_CONFIGS = {
     gcode: [
       // TODO: Add your Erasing Pen track G-code here
       "G1 Y10",
+      "M3 S0",
+      "M3 S180"
     ],
   },
 };
