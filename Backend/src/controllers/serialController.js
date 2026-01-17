@@ -35,12 +35,12 @@ const configureSerialPort = async (portPath, baudRate = 115200) => {
   try {
     // SerialPort options handle DTR/RTS without external commands
     console.log(
-      `[SERIAL] Configuring port ${portPath} (platform: ${HardwareConfig.SYSTEM.PLATFORM.OS})`
+      `[SERIAL] Configuring port ${portPath} (platform: ${HardwareConfig.SYSTEM.PLATFORM.OS})`,
     );
     return true;
   } catch (error) {
     console.warn(
-      `[SERIAL] Warning: Port configuration issue: ${error.message}`
+      `[SERIAL] Warning: Port configuration issue: ${error.message}`,
     );
     return false;
   }
@@ -85,7 +85,7 @@ router.post("/send", async (req, res) => {
   // CRITICAL FIX: Use mutex to prevent race conditions
   if (gcodeOperationMutex.isLocked()) {
     console.log(
-      "[SERIAL/SEND] ⚠️ Rejecting request - G-code operation already in progress (mutex locked)"
+      "[SERIAL/SEND] ⚠️ Rejecting request - G-code operation already in progress (mutex locked)",
     );
     return res.status(409).json({
       error:
@@ -163,7 +163,7 @@ router.post("/send", async (req, res) => {
           `[SERIAL] Warning: Failed to set Box to ${
             isErasingMode ? "erasing" : "writing"
           } mode:`,
-          boxError
+          boxError,
         );
       }
     }
@@ -176,7 +176,7 @@ router.post("/send", async (req, res) => {
       persistentConnected
     ) {
       console.log(
-        "[SERIAL] Using persistent connection for G-code transmission"
+        "[SERIAL] Using persistent connection for G-code transmission",
       );
       const startTime = Date.now();
 
@@ -206,14 +206,14 @@ router.post("/send", async (req, res) => {
         sendEvent,
         boxPort,
         boxModeChanged,
-        isErasingMode
+        isErasingMode,
       );
       return; // Exit early
     }
 
     // FALLBACK TO TEMPORARY CONNECTION
     console.log(
-      "[SERIAL] No persistent connection available, creating temporary connection"
+      "[SERIAL] No persistent connection available, creating temporary connection",
     );
 
     // Close existing temporary connection if any
@@ -292,7 +292,7 @@ router.post("/send", async (req, res) => {
           sendEvent,
           boxPort,
           boxModeChanged,
-          isErasingMode
+          isErasingMode,
         );
       }, 3000); // Increased to 3 seconds for better stability
     });
@@ -314,7 +314,7 @@ router.post("/send", async (req, res) => {
 
       // Log last known position for recovery
       console.log(
-        `Last known position before disconnect: X${lastKnownPosition.x} Y${lastKnownPosition.y} Z${lastKnownPosition.z}`
+        `Last known position before disconnect: X${lastKnownPosition.x} Y${lastKnownPosition.y} Z${lastKnownPosition.z}`,
       );
       console.log(`Last successful line: ${lastSuccessfulLine}`);
     });
@@ -346,7 +346,7 @@ function sendGcodeLinesSSE(
   sendEvent,
   boxPort = null,
   boxModeChanged = false,
-  isErasingMode = false
+  isErasingMode = false,
 ) {
   const lines = gcode
     .split("\n")
@@ -371,7 +371,7 @@ function sendGcodeLinesSSE(
       try {
         if (isErasingMode) {
           console.log(
-            "[SERIAL] ⏳ Waiting 1 second before exiting ERASING mode..."
+            "[SERIAL] ⏳ Waiting 1 second before exiting ERASING mode...",
           );
           await new Promise((resolve) => setTimeout(resolve, 1000));
           console.log("[SERIAL] 📤 Sending exit_erasing command to Box");
@@ -401,7 +401,7 @@ function sendGcodeLinesSSE(
     const corruptionIndicators = /[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]|[\?]{3,}/;
     if (corruptionIndicators.test(response) && response.length > 20) {
       console.error(
-        `⚠️ CORRUPTED DATA DETECTED: ${response.substring(0, 50)}...`
+        `⚠️ CORRUPTED DATA DETECTED: ${response.substring(0, 50)}...`,
       );
       sendEvent("log", {
         timestamp: Date.now() - startTime,
@@ -440,7 +440,7 @@ function sendGcodeLinesSSE(
       } else if (transmissionStarted) {
         // This is an unexpected reset during transmission
         console.error(
-          "⚠️ GRBL RESET DETECTED - Continuing anyway (CHECK USB CABLE!)"
+          "⚠️ GRBL RESET DETECTED - Continuing anyway (CHECK USB CABLE!)",
         );
         sendEvent("log", {
           message:
@@ -483,7 +483,7 @@ function sendGcodeLinesSSE(
     }
 
     console.log(
-      `[SERIAL] sendNextLine called - currentLine: ${currentLine}, total: ${lines.length}`
+      `[SERIAL] sendNextLine called - currentLine: ${currentLine}, total: ${lines.length}`,
     );
 
     if (currentLine >= lines.length) {
@@ -494,7 +494,7 @@ function sendGcodeLinesSSE(
       const totalTime = ((endTime - startTime) / 1000).toFixed(2);
 
       console.log(
-        `[SERIAL] G-code transmission complete in ${totalTime} seconds`
+        `[SERIAL] G-code transmission complete in ${totalTime} seconds`,
       );
 
       isDrawing = false;
@@ -540,6 +540,41 @@ function sendGcodeLinesSSE(
     if (!waitingForResponse) {
       const line = lines[currentLine];
       console.log(`Sending [${currentLine + 1}/${lines.length}]: ${line}`);
+
+      // Check if this is an M3 S0 or M3 S180 command that should go to Box
+      const isM3S0 = /^M3\s+S0\s*$/i.test(line.trim());
+      const isM3S180 = /^M3\s+S180\s*$/i.test(line.trim());
+
+      if ((isM3S0 || isM3S180) && boxPort && boxPort.isOpen) {
+        // Redirect to Box Arduino instead of CNC
+        const boxCommand = isM3S0 ? "M3S0" : "M3S180";
+        console.log(
+          `[SERIAL] Redirecting ${line.trim()} to Box Arduino as ${boxCommand}`,
+        );
+
+        boxPort.write(`${boxCommand}\n`, (err) => {
+          if (err) {
+            console.error(`[SERIAL] Error sending ${boxCommand} to Box:`, err);
+          } else {
+            console.log(
+              `[SERIAL] Successfully sent ${boxCommand} to Box Arduino`,
+            );
+          }
+        });
+
+        // Send progress update
+        sendEvent("progress", {
+          current: currentLine + 1,
+          total: lines.length,
+          line: `${line} (→ Box)`,
+          timestamp: Date.now() - startTime,
+        });
+
+        // Move to next line immediately (no need to wait for Box response)
+        currentLine++;
+        sendNextLine();
+        return;
+      }
 
       // Track position from G-code commands
       const xMatch = line.match(/X([-\d.]+)/);
@@ -596,7 +631,7 @@ function sendGcodeLinesSSE(
 
         consecutiveTimeouts++;
         console.error(
-          `⚠️ Timeout ${consecutiveTimeouts}/${MAX_CONSECUTIVE_TIMEOUTS} waiting for response to line ${currentLine}`
+          `⚠️ Timeout ${consecutiveTimeouts}/${MAX_CONSECUTIVE_TIMEOUTS} waiting for response to line ${currentLine}`,
         );
 
         if (consecutiveTimeouts >= MAX_CONSECUTIVE_TIMEOUTS) {
@@ -645,7 +680,7 @@ function sendGcodeLinesSSE(
       parser,
       "data",
       listenerId,
-      port === persistentPort ? "persistent-cnc" : "temp-cnc"
+      port === persistentPort ? "persistent-cnc" : "temp-cnc",
     );
 
     // Clear any pending timeout
@@ -707,13 +742,13 @@ router.get("/status", (req, res) => {
     port: persistentPort
       ? persistentPort.path
       : activePort
-      ? activePort.path
-      : null,
+        ? activePort.path
+        : null,
     isOpen: persistentPort
       ? persistentPort.isOpen
       : activePort
-      ? activePort.isOpen
-      : false,
+        ? activePort.isOpen
+        : false,
     isDrawing: isDrawing,
     position: lastKnownPosition,
     lastCommand: lastCommand,
@@ -761,7 +796,7 @@ router.post("/connect", async (req, res) => {
     });
 
     persistentParser = persistentPort.pipe(
-      new ReadlineParser({ delimiter: "\r\n" })
+      new ReadlineParser({ delimiter: "\r\n" }),
     );
 
     // Setup event listeners
@@ -782,7 +817,7 @@ router.post("/connect", async (req, res) => {
               console.log("Note: Could not set DTR/RTS:", setErr.message);
             } else {
               console.log(
-                "Persistent connection: DTR/RTS disabled - Arduino will NOT reset"
+                "Persistent connection: DTR/RTS disabled - Arduino will NOT reset",
               );
             }
           });
@@ -1087,7 +1122,7 @@ router.post("/recover", async (req, res) => {
   try {
     console.log("=== Starting Recovery Process ===");
     console.log(
-      `Last known position was: X${lastKnownPosition.x} Y${lastKnownPosition.y} Z${lastKnownPosition.z}`
+      `Last known position was: X${lastKnownPosition.x} Y${lastKnownPosition.y} Z${lastKnownPosition.z}`,
     );
     console.log(`GRBL has reset, so current position in GRBL is (0,0,0)`);
     console.log(`We need to move back to actual origin (0,0,0)`);
@@ -1100,7 +1135,7 @@ router.post("/recover", async (req, res) => {
     });
 
     const recoveryParser = serialPort.pipe(
-      new ReadlineParser({ delimiter: "\r\n" })
+      new ReadlineParser({ delimiter: "\r\n" }),
     );
     const responses = [];
 

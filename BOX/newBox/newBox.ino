@@ -7,6 +7,7 @@
 #include <MFRC522.h>
 #include <avr/sleep.h>
 #include <avr/power.h>
+#include <Servo.h>
 /* --------------------- Pins & HW --------------------- */
 #define TFT_CS   10
 #define TFT_DC    9
@@ -18,7 +19,9 @@
 #define LED_BLU  13
 #define RFID_SS_PIN 53
 #define RFID_RST_PIN 7
+#define SERVO_M3_PIN 6
 
+Servo servoM3;
 /* =====================================================
  *                    DisplayManager
  * ===================================================== */
@@ -1375,6 +1378,9 @@ NexaBoardSystem():modes(display, keypad),dfplayer(Serial1) {
     pinMode(LED_BLU, OUTPUT);
     pinMode(TRIG, OUTPUT);
     pinMode(ECHO, INPUT);
+    servoM3.attach(SERVO_M3_PIN);
+    servoM3.write(0);
+    delay(200);
     dfplayer.begin();
     dfplayer.playSound(1,23);
     display.begin();
@@ -1562,7 +1568,23 @@ void handleServerCommand(String cmd) {
             sendStatusToServer("LOGIN_OK"); // Logged in, in menu
         }
     }
+    else if (cmd.startsWith("M3")) {
 
+    int sIndex = cmd.indexOf('S');
+    if (sIndex == -1) sIndex = cmd.indexOf('s');
+
+    if (sIndex != -1) {
+        int angle = cmd.substring(sIndex + 1).toInt();
+        angle = constrain(angle, 0, 180);
+
+        servoM3.write(angle);
+
+        Serial.print("[Servo M3] Moved to: ");
+        Serial.println(angle);
+    } else {
+        Serial.println("[Servo M3] Invalid format (missing S)");
+    }
+}
     else {
         Serial.println("[Server] Unknown command");
     }
