@@ -1151,14 +1151,15 @@ router.post("/command", (req, res) => {
     "ready",
     "exiting",
     "locked",
-    // Servo Control (M3 commands from CNC)
-    "M3 S0",
-    "M3 S180",
   ];
 
-  if (!validCommands.includes(command)) {
+  // Check for specific M3 commands (only M3 S0 and M3 S180)
+  const isM3S0 = /^M3\s+S0$/i.test(command);
+  const isM3S180 = /^M3\s+S180$/i.test(command);
+
+  if (!validCommands.includes(command) && !isM3S0 && !isM3S180) {
     return res.status(400).json({
-      error: `Invalid command. Valid commands: ${validCommands.join(", ")}`,
+      error: `Invalid command. Valid commands: ${validCommands.join(", ")}, M3 S0, M3 S180`,
       validCommands,
     });
   }
