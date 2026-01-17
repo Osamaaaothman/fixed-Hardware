@@ -96,9 +96,8 @@ const executePenGcode = async (penType, io) => {
   try {
     // Import pen controller to get pen configs
     const { PEN_CONFIGS, CNC_CONFIG } = await import("./penController.js");
-    const { getPersistentPort, getPersistentParser } = await import(
-      "./serialController.js"
-    );
+    const { getPersistentPort, getPersistentParser } =
+      await import("./serialController.js");
 
     const serialPort = getPersistentPort();
     const serialParser = getPersistentParser();
@@ -144,7 +143,7 @@ const executePenGcode = async (penType, io) => {
       `F${CNC_CONFIG.FEED_RATE}`,
       `G1 Z${CNC_CONFIG.PEN_UP}`,
       "G0 X0 Y0",
-      `G1 Z${CNC_CONFIG.PEN_DOWN}`
+      `G1 Z${CNC_CONFIG.PEN_DOWN}`,
     );
     gcode.push(...config.gcode);
     gcode.push(`G1 Z${CNC_CONFIG.PEN_UP}`, "G0 X0 Y0", "M2");
@@ -182,7 +181,7 @@ const executePenGcode = async (penType, io) => {
           if (err) console.error(`[BOX] Error writing to CNC:`, err);
         });
         console.log(
-          `[BOX] ${penType} ${currentLine + 1}/${lines.length} - ${line}`
+          `[BOX] ${penType} ${currentLine + 1}/${lines.length} - ${line}`,
         );
         if (io) {
           io.emit("box:hardware-pen-progress", {
@@ -214,7 +213,7 @@ const executePenGcode = async (penType, io) => {
     // Remove listener after 2 minutes
     setTimeout(
       () => serialParser.removeListener("data", responseHandler),
-      120000
+      120000,
     );
   } catch (error) {
     console.error(`[BOX] Error executing ${penType}:`, error);
@@ -260,7 +259,7 @@ const parseBoxMessage = (message, io) => {
           lastMessage: msg,
           error: null,
         },
-        io
+        io,
       );
       break;
 
@@ -272,7 +271,7 @@ const parseBoxMessage = (message, io) => {
           lastMessage: msg,
           error: null,
         },
-        io
+        io,
       );
       break;
 
@@ -284,7 +283,7 @@ const parseBoxMessage = (message, io) => {
           lastMessage: msg,
           error: "Login failed - incorrect password",
         },
-        io
+        io,
       );
       break;
 
@@ -297,7 +296,7 @@ const parseBoxMessage = (message, io) => {
           lastMessage: msg,
           error: null,
         },
-        io
+        io,
       );
       break;
 
@@ -325,7 +324,7 @@ const parseBoxMessage = (message, io) => {
                   currentMode: "QUEUE_EMPTY",
                   lastMessage: "queue_empty",
                 },
-                io
+                io,
               );
 
               io.emit("box:hardware-draw-error", {
@@ -354,15 +353,13 @@ const parseBoxMessage = (message, io) => {
                 currentMode: "WRITING",
                 lastMessage: "MODE_WRITING",
               },
-              io
+              io,
             );
 
-            const { startQueueProcessing } = await import(
-              "../services/queueProcessor.js"
-            );
-            const { getPersistentPort, getPersistentParser } = await import(
-              "./serialController.js"
-            );
+            const { startQueueProcessing } =
+              await import("../services/queueProcessor.js");
+            const { getPersistentPort, getPersistentParser } =
+              await import("./serialController.js");
 
             const persistentPort = getPersistentPort();
             const persistentParser = getPersistentParser();
@@ -385,7 +382,7 @@ const parseBoxMessage = (message, io) => {
               115200,
               persistentPort,
               persistentParser,
-              boxPort
+              boxPort,
             );
           } catch (error) {
             console.error("[BOX] Error in hardware draw:", error);
@@ -405,7 +402,7 @@ const parseBoxMessage = (message, io) => {
           currentMode: "WRITING",
           lastMessage: msg,
         },
-        io
+        io,
       );
 
       // Check if this was triggered by software "Writing" button (not hardware button or Draw Now)
@@ -418,7 +415,7 @@ const parseBoxMessage = (message, io) => {
       // NOT when triggered by /serial/send (Draw Now button) which handles G-code directly
       if (writingIsSoftwareTriggered && io) {
         console.log(
-          "[BOX] Software Writing button clicked - auto-processing queue"
+          "[BOX] Software Writing button clicked - auto-processing queue",
         );
 
         // Auto-process queue when software triggers writing mode
@@ -441,12 +438,10 @@ const parseBoxMessage = (message, io) => {
             }
 
             // Process queue
-            const { startQueueProcessing } = await import(
-              "../services/queueProcessor.js"
-            );
-            const { getPersistentPort, getPersistentParser } = await import(
-              "./serialController.js"
-            );
+            const { startQueueProcessing } =
+              await import("../services/queueProcessor.js");
+            const { getPersistentPort, getPersistentParser } =
+              await import("./serialController.js");
 
             const persistentPort = getPersistentPort();
             const persistentParser = getPersistentParser();
@@ -469,7 +464,7 @@ const parseBoxMessage = (message, io) => {
               115200,
               persistentPort,
               persistentParser,
-              boxPort
+              boxPort,
             );
           } catch (error) {
             console.error("[BOX] Error in software writing mode:", error);
@@ -491,7 +486,7 @@ const parseBoxMessage = (message, io) => {
           currentMode: "ERASING",
           lastMessage: msg,
         },
-        io
+        io,
       );
       // Auto-trigger erasing when hardware button is pressed
       {
@@ -502,7 +497,7 @@ const parseBoxMessage = (message, io) => {
 
         if (erasingIsHardwareTriggered && io) {
           console.log(
-            "[BOX] Hardware erasing button pressed - auto-executing erasing"
+            "[BOX] Hardware erasing button pressed - auto-executing erasing",
           );
 
           // Emit event for frontend notification
@@ -516,9 +511,8 @@ const parseBoxMessage = (message, io) => {
             try {
               // Import required modules
               const erasingModule = await import("./erasingController.js");
-              const { getPersistentPort, getPersistentParser } = await import(
-                "./serialController.js"
-              );
+              const { getPersistentPort, getPersistentParser } =
+                await import("./serialController.js");
 
               // Get serial port
               const serialPort = getPersistentPort();
@@ -619,7 +613,7 @@ const parseBoxMessage = (message, io) => {
                   console.log(
                     `[BOX] Erasing: ${currentLine + 1}/${
                       lines.length
-                    } - ${line}`
+                    } - ${line}`,
                   );
                   currentLine++;
                 }
@@ -650,7 +644,7 @@ const parseBoxMessage = (message, io) => {
             } catch (error) {
               console.error(
                 "[BOX] Error handling hardware erasing trigger:",
-                error
+                error,
               );
               io.emit("box:hardware-erase-error", {
                 error: error.message,
@@ -672,7 +666,7 @@ const parseBoxMessage = (message, io) => {
           currentMode: "READY",
           lastMessage: msg,
         },
-        io
+        io,
       );
       break;
 
@@ -684,7 +678,7 @@ const parseBoxMessage = (message, io) => {
           currentPen: "none",
           lastMessage: msg,
         },
-        io
+        io,
       );
       break;
 
@@ -694,7 +688,7 @@ const parseBoxMessage = (message, io) => {
           currentMode: "SLEEP",
           lastMessage: msg,
         },
-        io
+        io,
       );
       break;
 
@@ -704,7 +698,7 @@ const parseBoxMessage = (message, io) => {
           currentMode: "IDLE",
           lastMessage: msg,
         },
-        io
+        io,
       );
       break;
 
@@ -714,7 +708,7 @@ const parseBoxMessage = (message, io) => {
           currentMode: "SCREENSHOT",
           lastMessage: msg,
         },
-        io
+        io,
       );
       // Emit special event to trigger automatic camera capture
       if (io) {
@@ -741,7 +735,7 @@ const parseBoxMessage = (message, io) => {
           currentPen: "pen1",
           lastMessage: msg,
         },
-        io
+        io,
       );
       // Auto-execute pen1 G-code
       console.log("[BOX] Hardware Pen1 button pressed - executing pen1");
@@ -761,7 +755,7 @@ const parseBoxMessage = (message, io) => {
           currentPen: "pen2",
           lastMessage: msg,
         },
-        io
+        io,
       );
       // Auto-execute pen2 G-code
       console.log("[BOX] Hardware Pen2 button pressed - executing pen2");
@@ -781,11 +775,11 @@ const parseBoxMessage = (message, io) => {
           currentPen: "erasing_pen",
           lastMessage: msg,
         },
-        io
+        io,
       );
       // Auto-execute erasing_pen G-code
       console.log(
-        "[BOX] Hardware Erasing Pen button pressed - executing erasing_pen"
+        "[BOX] Hardware Erasing Pen button pressed - executing erasing_pen",
       );
       if (io) {
         io.emit("box:hardware-pen-triggered", {
@@ -804,7 +798,7 @@ const parseBoxMessage = (message, io) => {
           lastMessage: msg,
           error: "Max login attempts reached - system locked",
         },
-        io
+        io,
       );
       break;
 
@@ -820,7 +814,7 @@ const parseBoxMessage = (message, io) => {
 const connectToBox = async (portPath, io, attemptNumber = 1) => {
   return new Promise(async (resolve, reject) => {
     console.log(
-      `[BOX] Connection attempt ${attemptNumber}/${BOX_CONFIG.MAX_RECONNECT_ATTEMPTS} to ${portPath}`
+      `[BOX] Connection attempt ${attemptNumber}/${BOX_CONFIG.MAX_RECONNECT_ATTEMPTS} to ${portPath}`,
     );
 
     try {
@@ -871,7 +865,7 @@ const connectToBox = async (portPath, io, attemptNumber = 1) => {
             reconnectAttempts: 0,
             error: null,
           },
-          io
+          io,
         );
 
         addToActivityLog(`Connected to Box on ${portPath}`, "success");
@@ -903,7 +897,7 @@ const connectToBox = async (portPath, io, attemptNumber = 1) => {
             error: errorMsg,
             reconnectAttempts: attemptNumber,
           },
-          io
+          io,
         );
 
         // Auto-reconnect if attempts remain
@@ -924,7 +918,7 @@ const connectToBox = async (portPath, io, attemptNumber = 1) => {
               error: finalError,
               reconnectAttempts: attemptNumber,
             },
-            io
+            io,
           );
 
           if (io) {
@@ -945,7 +939,7 @@ const connectToBox = async (portPath, io, attemptNumber = 1) => {
             loggedIn: false,
             currentMode: "DISCONNECTED",
           },
-          io
+          io,
         );
 
         addToActivityLog("Box disconnected", "info");
@@ -972,7 +966,7 @@ const connectToBox = async (portPath, io, attemptNumber = 1) => {
               error: errorMsg,
               reconnectAttempts: attemptNumber,
             },
-            io
+            io,
           );
 
           // Auto-reconnect if attempts remain
@@ -993,7 +987,7 @@ const connectToBox = async (portPath, io, attemptNumber = 1) => {
                 error: finalError,
                 reconnectAttempts: attemptNumber,
               },
-              io
+              io,
             );
 
             if (io) {
@@ -1014,7 +1008,7 @@ const connectToBox = async (portPath, io, attemptNumber = 1) => {
           error: errorMsg,
           reconnectAttempts: attemptNumber,
         },
-        io
+        io,
       );
 
       reject(err);
@@ -1085,7 +1079,7 @@ router.post("/disconnect", async (req, res) => {
                 currentMode: "DISCONNECTED",
                 error: null,
               },
-              io
+              io,
             );
 
             addToActivityLog("Box disconnected manually", "info");
@@ -1157,6 +1151,9 @@ router.post("/command", (req, res) => {
     "ready",
     "exiting",
     "locked",
+    // Servo Control (M3 commands from CNC)
+    "M3 S0",
+    "M3 S180",
   ];
 
   if (!validCommands.includes(command)) {

@@ -547,7 +547,7 @@ function sendGcodeLinesSSE(
 
       if ((isM3S0 || isM3S180) && boxPort && boxPort.isOpen) {
         // Redirect to Box Arduino instead of CNC
-        const boxCommand = isM3S0 ? "M3S0" : "M3S180";
+        const boxCommand = isM3S0 ? "M3 S0" : "M3 S180";
         console.log(
           `[SERIAL] Redirecting ${line.trim()} to Box Arduino as ${boxCommand}`,
         );

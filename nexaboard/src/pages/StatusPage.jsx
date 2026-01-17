@@ -299,7 +299,7 @@ const StatusPage = () => {
     const toastId = toast.loading(
       skipModeActivation
         ? "Capturing screenshot from hardware..."
-        : "Activating screenshot mode..."
+        : "Activating screenshot mode...",
     );
 
     let screenshotModeActivated = skipModeActivation;
@@ -356,7 +356,7 @@ const StatusPage = () => {
           "Screenshot mode activated, but camera capture failed. Check camera connection.",
           {
             id: toastId,
-          }
+          },
         );
       }
 
@@ -747,7 +747,7 @@ const StatusPage = () => {
                 </div>
                 <div
                   className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-semibold ${getStatusBadgeClass(
-                    boxStatus.currentMode
+                    boxStatus.currentMode,
                   )}`}
                 >
                   <span>{getModeIcon(boxStatus.currentMode)}</span>
@@ -967,43 +967,6 @@ const StatusPage = () => {
                 <div className="text-xs text-base-content/50">
                   Press ↑/↓ for command history, Enter to send
                 </div>
-
-                {/* Quick Commands */}
-                <div className="grid grid-cols-3 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setCncCommand("G28");
-                      handleSendCncCommand();
-                    }}
-                    disabled={!cncStatus.connected}
-                    className="btn btn-sm btn-ghost"
-                  >
-                    🏠 Home
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setCncCommand("$H");
-                      handleSendCncCommand();
-                    }}
-                    disabled={!cncStatus.connected}
-                    className="btn btn-sm btn-ghost"
-                  >
-                    🎯 Homing
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setCncCommand("?");
-                      handleSendCncCommand();
-                    }}
-                    disabled={!cncStatus.connected}
-                    className="btn btn-sm btn-ghost"
-                  >
-                    ❓ Status
-                  </button>
-                </div>
               </form>
 
               {!cncStatus.connected && (
@@ -1049,12 +1012,12 @@ const StatusPage = () => {
                         log.type === "error"
                           ? "text-error"
                           : log.type === "success"
-                          ? "text-success"
-                          : log.type === "command"
-                          ? "text-primary"
-                          : log.type === "response"
-                          ? "text-info"
-                          : "text-base-content"
+                            ? "text-success"
+                            : log.type === "command"
+                              ? "text-primary"
+                              : log.type === "response"
+                                ? "text-info"
+                                : "text-base-content"
                       }`}
                     >
                       <span className="text-base-content/50 shrink-0 text-[10px]">
@@ -1416,10 +1379,10 @@ const StatusPage = () => {
                         activity.type === "error"
                           ? "text-error"
                           : activity.type === "success"
-                          ? "text-success"
-                          : activity.type === "command"
-                          ? "text-primary"
-                          : "text-base-content"
+                            ? "text-success"
+                            : activity.type === "command"
+                              ? "text-primary"
+                              : "text-base-content"
                       }`}
                     >
                       <span className="text-base-content/50 shrink-0 text-[10px]">
@@ -1429,10 +1392,10 @@ const StatusPage = () => {
                         {activity.type === "error"
                           ? "❌"
                           : activity.type === "success"
-                          ? "✅"
-                          : activity.type === "command"
-                          ? "📤"
-                          : "📥"}{" "}
+                            ? "✅"
+                            : activity.type === "command"
+                              ? "📤"
+                              : "📥"}{" "}
                         {activity.message}
                       </span>
                     </div>
