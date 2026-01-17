@@ -156,7 +156,7 @@ router.post("/execute/:penType", async (req, res) => {
             });
           }
           currentLine++;
-          setTimeout(() => sendNextLine(), 100); // 100ms delay for servo movement
+          setTimeout(() => sendNextLine(), 500); // 500ms delay for servo movement
           return;
         }
 

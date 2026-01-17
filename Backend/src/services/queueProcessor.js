@@ -60,8 +60,8 @@ function sendLine(line, parser, serialPort) {
           );
         }
 
-        // Wait 100ms for servo movement, then resolve
-        setTimeout(() => resolve(), 100);
+        // Wait 500ms for servo movement, then resolve
+        setTimeout(() => resolve(), 500);
       } catch (error) {
         console.error(`[QUEUE] Error controlling servo:`, error);
         // Continue execution even if servo fails

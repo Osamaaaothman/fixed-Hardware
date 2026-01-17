@@ -217,7 +217,7 @@ const executePenGcode = async (penType, io) => {
             });
           }
           currentLine++;
-          setTimeout(() => sendNextLine(), 100); // 100ms delay for servo movement
+          setTimeout(() => sendNextLine(), 500); // 500ms delay for servo movement
           return;
         }
 
@@ -683,7 +683,7 @@ const parseBoxMessage = (message, io) => {
                       } - ${line} (Servo)`,
                     );
                     currentLine++;
-                    setTimeout(() => sendNextLine(), 100); // 100ms delay for servo movement
+                    setTimeout(() => sendNextLine(), 500); // 500ms delay for servo movement
                     return;
                   }
 

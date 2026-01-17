@@ -575,7 +575,7 @@ function sendGcodeLinesSSE(
 
         // Move to next line immediately (no need to wait for servo)
         currentLine++;
-        setTimeout(() => sendNextLine(), 100); // Small delay for servo movement
+        setTimeout(() => sendNextLine(), 500); // 500ms delay for servo movement
         return;
       }
 
