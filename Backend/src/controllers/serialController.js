@@ -544,20 +544,52 @@ function sendGcodeLinesSSE(
       // Check if this is an M3 S0 or M3 S180 command that should go to Box
       const isM3S0 = /^M3\s+S0\s*$/i.test(line.trim());
       const isM3S180 = /^M3\s+S180\s*$/i.test(line.trim());
+      const isM3Command = isM3S0 || isM3S180;
 
-      if ((isM3S0 || isM3S180) && boxPort && boxPort.isOpen) {
-        // Redirect to Box Arduino instead of CNC
+      if (isM3Command) {
+        // M3 commands MUST ONLY go to BOX, never to CNC
+        console.log(`[SERIAL] ⚡ M3 command detected: ${line.trim()}`);
+        console.log(
+          `[SERIAL] BOX Status - Port: ${boxPort ? "exists" : "null"}, Open: ${boxPort?.isOpen ? "YES" : "NO"}`,
+        );
+
+        if (!boxPort || !boxPort.isOpen) {
+          // BOX is not connected - CRITICAL ERROR
+          const errorMsg = `❌ BOX NOT CONNECTED: Cannot send M3 command (${line.trim()}). M3 commands control the servo and MUST go to BOX only!`;
+          console.error(`[SERIAL] ${errorMsg}`);
+
+          sendEvent("error", {
+            message: errorMsg,
+            command: line.trim(),
+            requirement: "BOX must be connected to use M3 servo commands",
+            timestamp: Date.now() - startTime,
+          });
+
+          // Skip this line and continue with next one
+          currentLine++;
+          sendNextLine();
+          return;
+        }
+
+        // BOX is connected - send command to BOX ONLY
         const boxCommand = isM3S0 ? "M3 S0" : "M3 S180";
         console.log(
-          `[SERIAL] Redirecting ${line.trim()} to Box Arduino as ${boxCommand}`,
+          `[SERIAL] ✅ Routing ${line.trim()} → BOX Arduino (Servo Control)`,
         );
 
         boxPort.write(`${boxCommand}\n`, (err) => {
           if (err) {
-            console.error(`[SERIAL] Error sending ${boxCommand} to Box:`, err);
+            console.error(
+              `[SERIAL] ❌ Error sending ${boxCommand} to BOX:`,
+              err,
+            );
+            sendEvent("error", {
+              message: `Failed to send ${boxCommand} to BOX: ${err.message}`,
+              timestamp: Date.now() - startTime,
+            });
           } else {
             console.log(
-              `[SERIAL] Successfully sent ${boxCommand} to Box Arduino`,
+              `[SERIAL] ✅ Successfully sent ${boxCommand} to BOX Arduino`,
             );
           }
         });
@@ -566,7 +598,7 @@ function sendGcodeLinesSSE(
         sendEvent("progress", {
           current: currentLine + 1,
           total: lines.length,
-          line: `${line} (→ Box)`,
+          line: `${line} (→ BOX Servo)`,
           timestamp: Date.now() - startTime,
         });
 

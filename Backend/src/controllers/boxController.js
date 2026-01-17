@@ -1172,10 +1172,18 @@ router.post("/command", (req, res) => {
   }
 
   try {
+    // Enhanced logging for M3 commands (servo control)
+    if (isM3S0 || isM3S180) {
+      console.log(`[BOX] 🔧 M3 Servo Command: ${command}`);
+      console.log(
+        `[BOX]    └─> Action: ${isM3S0 ? "Pen UP (0°)" : "Pen DOWN (180°)"}`,
+      );
+    }
+
     // Send command to Box
     boxPort.write(`${command}\n`, (err) => {
       if (err) {
-        console.error(`[BOX] Error sending command "${command}":`, err);
+        console.error(`[BOX] ❌ Error sending command "${command}":`, err);
 
         const errorMsg = `Failed to send command: ${err.message}`;
         addToActivityLog(errorMsg, "error");
@@ -1186,7 +1194,7 @@ router.post("/command", (req, res) => {
         });
       }
 
-      console.log(`[BOX] Command sent: ${command}`);
+      console.log(`[BOX] ✅ Command sent: ${command}`);
 
       // Track software command to differentiate from hardware triggers
       lastSoftwareCommand = command;
